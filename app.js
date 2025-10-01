@@ -433,24 +433,6 @@
     }catch{ return null; }
   }
 
-  // Seed example data if empty
-  if(runs.length===0){
-    const out = [];
-    const now = new Date();
-    for(let i=0;i<30;i++){
-      const d = new Date(now); d.setDate(d.getDate()-i);
-      if(Math.random()<0.6){
-        const miles = +( (4 + Math.random()*6).toFixed(2) );
-        const pace = 7.5 + Math.random()*2.5;
-        const time = Math.round(miles * pace * 60);
-        const types = ['Easy','Long','Workout','Recovery','Trail'];
-        const type = types[Math.floor(Math.random()*types.length)];
-        out.push({ id: String(Date.now())+i, date: toISO(d), type, distance: miles, time, route: 'Neighborhood', notes: '' });
-      }
-    }
-    runs = out; save(storageKey, runs);
-  }
-
   // Initial render
   renderCalendar(); renderList(); updateStats(); drawAllCharts();
 
