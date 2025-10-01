@@ -59,3 +59,14 @@ a{color:var(--accent)} img{max-width:100%;display:block}
 
 /* List hover: softer highlight instead of black */
 .runs-table tr:hover{ background: rgba(255,255,255,.04); }
+/* Pills for small inline tags (AM/PM, effort, surface, shoe) */
+.pill { display:inline-block; font-size:.73rem; line-height:1; padding:.2rem .4rem; border-radius:.4rem;
+  border:1px solid #334155; color:var(--muted); margin-left:.25rem; }
+.pill.warn { border-color:#f59e0b; color:#fbbf24; }
+
+/* Toast (Undo) */
+.toast { position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: 16px; background: var(--surface); color: var(--text);
+  border: 1px solid #1f2937; border-radius: .6rem; padding: .6rem .8rem;
+  display: flex; align-items: center; gap: .6rem; box-shadow: 0 6px 20px rgba(0,0,0,.35); z-index: 50; }
+.toast[hidden] { display: none; }
