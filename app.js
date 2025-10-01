@@ -1,4 +1,4 @@
-// RunLog — localStorage only (no profiles), Monday calendar, separate daily entries
+// RunLog — localStorage only (no profiles), Monday calendar, separate daily entries + easy wins
 (function(){
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
@@ -46,6 +46,18 @@
   const addRouteBtn = $('#addRouteBtn');
   const routeListUI = $('#routeListUI');
 
+  // NEW: shoes + extra fields from dialog
+  const shoeInput = $('#shoeInput');
+  const shoeDatalist = $('#shoeDatalist');
+  const sessionSelect = $('#sessionSelect');
+  const surfaceSelect = $('#surfaceSelect');
+  const effortSelect = $('#effortSelect');
+
+  // NEW: toast / undo
+  const toast = $('#toast'), toastMsg = $('#toastMsg'), toastUndo = $('#toastUndo');
+  let lastDeleted = null; // {entry, index}
+  let toastTimer = null;
+
   document.getElementById('year').textContent = new Date().getFullYear();
 
   // Theme
@@ -62,7 +74,7 @@
     btn.setAttribute('aria-selected','true');
     sections.forEach(s => s.classList.remove('show'));
     document.getElementById('tab-'+btn.dataset.tab).classList.add('show');
-    if(btn.dataset.tab==='stats'){ drawAllCharts(); }
+    if(btn.dataset.tab==='stats'){ drawAllCharts(); renderShoeList(); }
     if(btn.dataset.tab==='calendar'){ renderCalendar(); }
     if(btn.dataset.tab==='list'){ renderList(); }
   }));
@@ -77,7 +89,7 @@
     units = settings.units;
     unitLabels.forEach(el => el.textContent = ulabel());
     save(settingsKey, settings);
-    renderCalendar(); renderList(); updateStats();
+    renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeList();
     alert('Settings saved.');
   });
 
@@ -97,9 +109,24 @@
     const timeSecs = parseHMS(fd.get('time')||'0:00');
     const route = (fd.get('route')||'').trim();
     const notes = (fd.get('notes')||'').trim();
+
+    // NEW: extra fields
+    const session = (fd.get('session')||'').trim(); // 'AM'|'PM'|''
+    const shoe = (fd.get('shoe')||'').trim();
+    const workout = (fd.get('workout')||'').trim();
+    const surface = (fd.get('surface')||'').trim();
+    const effort = (fd.get('effort')||'').trim();
+
     if(!date || !timeSecs || !distance){ alert('Please provide date, distance, and time.'); return; }
 
-    const entry = { id: id || String(Date.now()), date, type, distance, time: timeSecs, route, notes };
+    const entry = {
+      id: id || String(Date.now()),
+      date, type, distance, time: timeSecs,
+      route, notes,
+      // NEW
+      session, shoe, workout, surface, effort
+    };
+
     if(id){
       const idx = runs.findIndex(r=>r.id===id);
       if(idx>=0) runs[idx] = entry;
@@ -114,7 +141,7 @@
 
     save(storageKey, runs);
     runDialog.close();
-    renderCalendar(); renderList(); updateStats(); drawAllCharts();
+    renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeDatalist(); renderShoeList();
   });
   runDialog.addEventListener('close', () => runForm.reset());
 
@@ -128,6 +155,13 @@
       runForm.elements['route'].value = existing.route || '';
       runForm.elements['notes'].value = existing.notes || '';
       runForm.elements['id'].value = existing.id;
+
+      // NEW prefill
+      if (sessionSelect) sessionSelect.value = existing.session || '';
+      if (shoeInput) shoeInput.value = existing.shoe || '';
+      if (runForm.elements['workout']) runForm.elements['workout'].value = existing.workout || '';
+      if (surfaceSelect) surfaceSelect.value = existing.surface || '';
+      if (effortSelect) effortSelect.value = existing.effort || '';
     } else {
       runForm.elements['date'].value = date || todayISO();
       runForm.elements['id'].value = '';
@@ -135,8 +169,14 @@
       runForm.elements['time'].value = '';
       runForm.elements['route'].value = '';
       runForm.elements['notes'].value = '';
+      // NEW reset
+      if (sessionSelect) sessionSelect.value = '';
+      if (shoeInput) shoeInput.value = '';
+      if (runForm.elements['workout']) runForm.elements['workout'].value = '';
+      if (surfaceSelect) surfaceSelect.value = '';
+      if (effortSelect) effortSelect.value = '';
     }
-    renderTypeSelect(); renderRouteDatalist();
+    renderTypeSelect(); renderRouteDatalist(); renderShoeDatalist();
     runDialog.showModal();
   }
 
@@ -149,7 +189,7 @@
     if(searchText) searchText.value='';
     applyFilters();
   });
-  function applyFilters(){ renderList(); renderCalendar(); updateStats(); drawAllCharts(); }
+  function applyFilters(){ renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeList(); }
 
   // Calendar (Monday-first)
   let viewYear = new Date().getFullYear();
@@ -204,12 +244,18 @@
         <div class="miles">${fmtDist(total).toFixed(2)} ${ulabel()}</div>
       `;
 
-      const entriesHtml = dayRuns.map(r => `
-        <div class="entry" data-id="${r.id}" title="Double-click to edit">
-          <span>${esc(r.type||'')} <span class="meta">• ${fmtDist(r.distance).toFixed(2)} ${ulabel()}</span></span>
-          <span class="meta">${paceStr(r.time / Math.max(0.01, r.distance))} /${ulabel()}</span>
-        </div>
-      `).join('');
+      const entriesHtml = dayRuns.map(r => {
+        const pace = paceStr(r.time / Math.max(0.01, r.distance));
+        const sess = r.session ? `<span class="pill">${esc(r.session)}</span>` : '';
+        const shoe = r.shoe ? `<span class="pill" title="Shoe">${esc(r.shoe)}</span>` : '';
+        const eff  = r.effort ? `<span class="pill" title="Effort">${esc(r.effort)}</span>` : '';
+        return `
+          <div class="entry" data-id="${r.id}" title="Double-click to edit">
+            <span>${esc(r.type||'')} <span class="meta">• ${fmtDist(r.distance).toFixed(2)} ${ulabel()}</span>${sess}${shoe}${eff}</span>
+            <span class="meta">${pace} /${ulabel()}</span>
+          </div>
+        `;
+      }).join('');
 
       wrap.innerHTML = header + `<div class="entries">${entriesHtml || ''}</div>`;
       wrap.addEventListener('dblclick', ()=> openRunDialog(dateISO));
@@ -233,6 +279,15 @@
     runsTbody.innerHTML = '';
     data.forEach(r => {
       const tr = document.createElement('tr');
+
+      const pills = [
+        r.workout ? `<span class="pill" title="Workout">${esc(r.workout)}</span>` : '',
+        r.surface ? `<span class="pill" title="Surface">${esc(r.surface)}</span>` : '',
+        r.effort  ? `<span class="pill" title="Effort">${esc(r.effort)}</span>` : '',
+        r.session ? `<span class="pill" title="Session">${esc(r.session)}</span>` : '',
+        r.shoe    ? `<span class="pill" title="Shoe">${esc(r.shoe)}</span>` : ''
+      ].join(' ');
+
       tr.innerHTML = `
         <td>${r.date}</td>
         <td>${esc(r.type||'')}</td>
@@ -240,7 +295,7 @@
         <td>${secToHMS(r.time)}</td>
         <td>${paceStr(r.time / Math.max(0.01, r.distance))} /${ulabel()}</td>
         <td>${esc(r.route||'')}</td>
-        <td>${esc(r.notes||'')}</td>
+        <td>${esc(r.notes||'')}${pills ? '<div style="margin-top:.25rem">'+pills+'</div>' : ''}</td>
         <td style="white-space:nowrap">
           <button class="btn small btn-outline edit">Edit</button>
           <button class="btn small btn-outline del">Del</button>
@@ -249,9 +304,21 @@
       tr.querySelector('.edit').addEventListener('click', ()=> openRunDialog(null, r));
       tr.querySelector('.del').addEventListener('click', ()=>{
         if(confirm('Delete this run?')){
-          runs = runs.filter(x=>x.id!==r.id);
-          save(storageKey, runs);
-          renderList(); renderCalendar(); updateStats(); drawAllCharts();
+          const idx = runs.findIndex(x=>x.id===r.id);
+          if(idx>=0){
+            lastDeleted = { entry: runs[idx], index: idx };
+            runs.splice(idx,1);
+            save(storageKey, runs);
+            renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeList();
+            showToast('Run deleted.', true, ()=>{
+              if(lastDeleted){
+                runs.splice(lastDeleted.index, 0, lastDeleted.entry);
+                save(storageKey, runs);
+                renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeList();
+                lastDeleted = null;
+              }
+            });
+          }
         }
       });
       runsTbody.appendChild(tr);
@@ -292,9 +359,9 @@
   }
 
   function drawAllCharts(){
-    drawBar(chartMonthly, monthlyTotals(filteredRuns()), 'Monthly mileage');
-    drawBar(chartWeekday, arrToMap(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], weekdayTotalsMon(filteredRuns())), 'Weekday mileage');
-    drawBar(chartTypes, typeTotals(filteredRuns()), 'Run types');
+    if (chartMonthly) drawBar(chartMonthly, monthlyTotals(filteredRuns()), 'Monthly mileage');
+    if (chartWeekday) drawBar(chartWeekday, arrToMap(['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], weekdayTotalsMon(filteredRuns())), 'Weekday mileage');
+    if (chartTypes) drawBar(chartTypes, typeTotals(filteredRuns()), 'Run types');
   }
 
   // Charts
@@ -385,6 +452,54 @@
   function normalizeName(s){ return (s||'').trim(); }
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+  // Toast helpers
+  function showToast(msg, withUndo, undoFn){
+    if(!toast) return;
+    toastMsg.textContent = msg;
+    toast.hidden = false;
+    toastUndo.hidden = !withUndo;
+    toastUndo.onclick = () => {
+      hideToast();
+      undoFn && undoFn();
+    };
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 7000);
+  }
+  function hideToast(){
+    if(!toast) return;
+    toast.hidden = true;
+    clearTimeout(toastTimer);
+    toastTimer = null;
+  }
+
+  // Shoes aggregation + datalist
+  const SHOE_WARN_MILES = 400;
+  function shoeTotalsMiles(data){
+    const map = {};
+    data.forEach(r=>{
+      if(!r.shoe) return;
+      map[r.shoe] = (map[r.shoe] || 0) + (r.distance || 0);
+    });
+    return map;
+  }
+  function renderShoeList(){
+    const ul = $('#shoeList'); if(!ul) return;
+    const totals = shoeTotalsMiles(runs);
+    const shoes = Object.keys(totals).sort((a,b)=> totals[b]-totals[a]);
+    if(shoes.length===0){ ul.innerHTML = `<li class="muted">No shoes yet</li>`; return; }
+    ul.innerHTML = shoes.map(name=>{
+      const miles = totals[name];
+      const warn = miles >= SHOE_WARN_MILES;
+      const label = `${esc(name)} — ${fmtDist(miles).toFixed(1)} ${ulabel()}`;
+      return `<li>${label}${warn ? ' <span class="pill warn" title="Consider retiring this shoe">⚠︎ 400+ mi</span>' : ''}</li>`;
+    }).join('');
+  }
+  function renderShoeDatalist(){
+    if(!shoeDatalist) return;
+    const names = Array.from(new Set(runs.map(r=>r.shoe).filter(Boolean))).sort((a,b)=>a.localeCompare(b));
+    shoeDatalist.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+  }
+
   // Export/Import
   exportJsonBtn.addEventListener('click', ()=>{
     download('runlog.json', JSON.stringify(runs, null, 2));
@@ -413,7 +528,7 @@
         runs.push(obj);
       });
       save(storageKey, runs);
-      renderCalendar(); renderList(); updateStats(); drawAllCharts();
+      renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeDatalist(); renderShoeList();
       alert(`Imported ${imported.length} runs.`);
       e.target.value = '';
     } catch(err){ alert('Import failed: '+err.message); }
@@ -469,7 +584,13 @@
       const route = r.route || '';
       const notes = r.notes || '';
       if(!date || !distance || !time) return null;
-      return { id: String(Date.now())+Math.random().toString(16).slice(2), date, type, distance, time, route, notes };
+      // new fields are optional; ignore if absent
+      return {
+        id: String(Date.now())+Math.random().toString(16).slice(2),
+        date, type, distance, time, route, notes,
+        session: r.session || '', shoe: r.shoe || '', workout: r.workout || '',
+        surface: r.surface || '', effort: r.effort || ''
+      };
     }catch{ return null; }
   }
 
@@ -477,6 +598,7 @@
   renderCalendar(); renderList(); updateStats(); drawAllCharts();
   renderTypeSelect(); renderTypeFilterOptions(); renderTypeListUI();
   renderRouteDatalist(); renderRouteListUI();
+  renderShoeDatalist(); renderShoeList();
 
   // Render helpers
   function renderTypeSelect() {
