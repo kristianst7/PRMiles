@@ -4,6 +4,11 @@
   const $$ = s => Array.from(document.querySelectorAll(s));
   const storageKey = 'runlog.v1';
   const settingsKey = 'runlog.settings.v1';
+  const metaKey = 'runlog.meta.v1'; // holds user-managed lists
+
+  // defaults if nothing saved yet
+  const defaultTypes = ['Easy','Long','Workout','Race','Tempo','Intervals','Recovery','Trail'];
+  let meta = load(metaKey) || { types: defaultTypes.slice(), routes: [] };
 
   const todayISO = () => new Date().toISOString().slice(0,10);
   const parseHMS = (t) => {
@@ -61,6 +66,20 @@
   const exportCsvBtn = $('#exportCsv');
   const importFile = $('#importFile');
 
+  // NEW: elements for custom lists + dialog fields
+  const typeSelect = document.getElementById('typeSelect');        // run dialog <select name="type" id="typeSelect">
+  const routeInput = document.getElementById('routeInput');        // run dialog <input name="route" id="routeInput" list="routeDatalist">
+  const routeDatalist = document.getElementById('routeDatalist');  // run dialog <datalist id="routeDatalist">
+
+  // Settings → Lists managers
+  const newTypeInput = document.getElementById('newTypeInput');
+  const addTypeBtn = document.getElementById('addTypeBtn');
+  const typeListUI = document.getElementById('typeList');
+
+  const newRouteInput = document.getElementById('newRouteInput');
+  const addRouteBtn = document.getElementById('addRouteBtn');
+  const routeListUI = document.getElementById('routeListUI');
+
   document.getElementById('year').textContent = new Date().getFullYear();
 
   // Theme
@@ -83,10 +102,10 @@
   }));
 
   // Settings
-  unitSelect.value = units;
-  weeklyGoalInput.value = settings.weeklyGoal || '';
+  unitSelect && (unitSelect.value = units);
+  weeklyGoalInput && (weeklyGoalInput.value = settings.weeklyGoal || '');
   unitLabels.forEach(el => el.textContent = ulabel());
-  document.getElementById('saveSettings').addEventListener('click', () => {
+  document.getElementById('saveSettings')?.addEventListener('click', () => {
     settings.units = unitSelect.value;
     settings.weeklyGoal = parseInt(weeklyGoalInput.value||'0',10) || 0;
     units = settings.units;
@@ -116,6 +135,18 @@
     } else {
       runs.push(entry);
     }
+
+    // NEW: learn routes automatically
+    if (entry.route) {
+      const rname = normalizeName(entry.route);
+      if (rname && !meta.routes.includes(rname)) {
+        meta.routes.push(rname);
+        saveMeta();
+        renderRouteListUI();
+        renderRouteDatalist();
+      }
+    }
+
     save(storageKey, runs);
     runDialog.close();
     renderCalendar(); renderList(); updateStats(); drawAllCharts();
@@ -140,9 +171,12 @@
   }
 
   // Filters
-  [startDate,endDate,typeFilter,searchText].forEach(el => el.addEventListener('input', applyFilters));
-  clearFilters.addEventListener('click', () => {
-    startDate.value = ''; endDate.value=''; typeFilter.value=''; searchText.value='';
+  [startDate,endDate,typeFilter,searchText].forEach(el => el && el.addEventListener('input', applyFilters));
+  clearFilters?.addEventListener('click', () => {
+    if(startDate) startDate.value = '';
+    if(endDate) endDate.value='';
+    if(typeFilter) typeFilter.value='';
+    if(searchText) searchText.value='';
     applyFilters();
   });
 
@@ -323,10 +357,10 @@
 
   function filteredRuns(){
     return runs.filter(r=>{
-      if(startDate.value && r.date < startDate.value) return false;
-      if(endDate.value && r.date > endDate.value) return false;
-      if(typeFilter.value && r.type !== typeFilter.value) return false;
-      const q = (searchText.value||'').toLowerCase();
+      if(startDate?.value && r.date < startDate.value) return false;
+      if(endDate?.value && r.date > endDate.value) return false;
+      if(typeFilter?.value && r.type !== typeFilter.value) return false;
+      const q = (searchText?.value||'').toLowerCase();
       if(q && !((r.route||'').toLowerCase().includes(q) || (r.notes||'').toLowerCase().includes(q))) return false;
       return true;
     });
@@ -344,6 +378,10 @@
   function endOfMonth(d){ return new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999); }
   function startOfYear(d){ return new Date(d.getFullYear(), 0, 1); }
   function endOfYear(d){ return new Date(d.getFullYear(), 11, 31, 23,59,59,999); }
+  function milesInRange(start, end, data){
+    const s = toISO(start), e = toISO(end);
+    return sum(data.filter(r => r.date >= s && r.date <= e).map(r => r.distance));
+  }
 
   // Export/Import
   exportJsonBtn.addEventListener('click', ()=>{
@@ -433,8 +471,92 @@
     }catch{ return null; }
   }
 
+  // ===== NEW: meta (types/routes) helpers & renderers =====
+  function saveMeta(){ save(metaKey, meta); }
+  function normalizeName(s){ return (s||'').trim(); }
+
+  function renderTypeSelect() {
+    if (!typeSelect) return;
+    typeSelect.innerHTML = meta.types.map(t => `<option>${esc(t)}</option>`).join('');
+  }
+  function renderTypeListUI() {
+    if (!typeListUI) return;
+    typeListUI.innerHTML = meta.types.map(t => `
+      <li>${esc(t)} <button type="button" data-type="${esc(t)}" title="Remove">×</button></li>
+    `).join('');
+    typeListUI.querySelectorAll('button[data-type]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.getAttribute('data-type');
+        meta.types = meta.types.filter(x => x !== name);
+        saveMeta();
+        renderTypeListUI();
+        renderTypeSelect();
+        renderTypeFilterOptions();
+      });
+    });
+  }
+  function renderTypeFilterOptions(){
+    if (!typeFilter) return;
+    const opts = ['<option value="">All</option>'].concat(meta.types.map(t => `<option>${esc(t)}</option>`));
+    typeFilter.innerHTML = opts.join('');
+  }
+  function renderRouteDatalist() {
+    if (!routeDatalist) return;
+    const uniq = Array.from(new Set(meta.routes)).sort((a,b)=>a.localeCompare(b));
+    routeDatalist.innerHTML = uniq.map(r => `<option value="${esc(r)}"></option>`).join('');
+  }
+  function renderRouteListUI() {
+    if (!routeListUI) return;
+    const uniq = Array.from(new Set(meta.routes)).sort((a,b)=>a.localeCompare(b));
+    routeListUI.innerHTML = uniq.map(r => `
+      <li>${esc(r)} <button type="button" data-route="${esc(r)}" title="Remove">×</button></li>
+    `).join('');
+    routeListUI.querySelectorAll('button[data-route]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.getAttribute('data-route');
+        meta.routes = meta.routes.filter(x => x !== name);
+        saveMeta();
+        renderRouteListUI();
+        renderRouteDatalist();
+      });
+    });
+  }
+
+  // Buttons in Settings: add type/route
+  addTypeBtn?.addEventListener('click', () => {
+    const name = normalizeName(newTypeInput.value);
+    if (!name) return;
+    if (!meta.types.includes(name)) {
+      meta.types.push(name);
+      saveMeta();
+      newTypeInput.value = '';
+      renderTypeListUI();
+      renderTypeSelect();
+      renderTypeFilterOptions();
+      alert('Type added.');
+    } else {
+      alert('That type already exists.');
+    }
+  });
+  addRouteBtn?.addEventListener('click', () => {
+    const name = normalizeName(newRouteInput.value);
+    if (!name) return;
+    if (!meta.routes.includes(name)) {
+      meta.routes.push(name);
+      saveMeta();
+      newRouteInput.value = '';
+      renderRouteListUI();
+      renderRouteDatalist();
+      alert('Route added.');
+    } else {
+      alert('That route already exists.');
+    }
+  });
+
   // Initial render
   renderCalendar(); renderList(); updateStats(); drawAllCharts();
+  renderTypeSelect(); renderTypeListUI(); renderTypeFilterOptions();
+  renderRouteDatalist(); renderRouteListUI();
 
   // helpers used above
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
