@@ -20,6 +20,7 @@
         <li><button class="tab-btn" data-tab="calendar" aria-selected="true">Calendar</button></li>
         <li><button class="tab-btn" data-tab="list">List</button></li>
         <li><button class="tab-btn" data-tab="stats">Stats</button></li>
+        <li><button class="tab-btn" data-tab="races">Races</button></li>
         <li><button class="tab-btn" data-tab="tools">Tools</button></li>
         <li><button class="tab-btn" data-tab="settings">Settings</button></li>
         <li><button id="themeBtn" class="theme-btn" aria-label="Toggle theme">🌓</button></li>
@@ -118,7 +119,21 @@
     </div>
   </section>
 
-  <!-- NEW: Tools tab for managing catalogs -->
+  <!-- NEW: Races tab -->
+  <section id="tab-races" class="tab">
+    <article class="card">
+      <h3>Races</h3>
+      <table class="runs-table">
+        <thead>
+          <tr><th>Date</th><th>Race</th><th>Official Distance</th><th>Official Time</th><th>Place</th><th>Notes</th><th></th></tr>
+        </thead>
+        <tbody id="racesTbody"></tbody>
+      </table>
+      <p class="muted">Entries tagged as races are listed here for quick reference.</p>
+    </article>
+  </section>
+
+  <!-- Tools tab (catalog managers) -->
   <section id="tab-tools" class="tab">
     <div class="grid two">
       <article class="card">
@@ -174,7 +189,7 @@
           <button id="addXTrainBtn" class="btn" type="button">Add activity</button>
         </form>
         <ul id="xtrainListUI" class="badges" aria-live="polite"></ul>
-        <p class="muted">These appear in the Add Run dialog (multi-select) and are also auto-learned from your entries.</p>
+        <p class="muted">These appear in the Add Run dialog (can add multiple with individual notes).</p>
       </article>
     </div>
   </section>
@@ -206,6 +221,7 @@
 <dialog id="runDialog">
   <form id="runForm" class="form">
     <h3 id="dialogTitle">Add Run</h3>
+
     <div class="grid two">
       <label>Date <input type="date" name="date" required></label>
 
@@ -229,8 +245,12 @@
         </select>
       </label>
 
-      <!-- Shoe + Surface as free text with datalist -->
-      <label>Shoe
+      <label>Route
+        <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
+        <datalist id="routeDatalist"></datalist>
+      </label>
+
+      <label>Shoe (overall / default)
         <input type="text" name="shoe" id="shoeInput" list="shoeDatalist" placeholder="e.g., Pegasus 40">
         <datalist id="shoeDatalist"></datalist>
       </label>
@@ -240,28 +260,81 @@
         <datalist id="surfaceDatalist"></datalist>
       </label>
 
-      <label>Workout
-        <input type="text" name="workout" placeholder="6×800 @ 3:00 (2')">
-      </label>
-
-      <label>Route
-        <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
-        <datalist id="routeDatalist"></datalist>
-      </label>
-
-      <!-- NEW: Cross-training (multi-select + notes) -->
-      <label>Cross-training
-        <select id="xtrainSelect" name="xtrain" multiple size="4" aria-label="Cross-training activities"></select>
-      </label>
-
-      <label>XT Notes
-        <input type="text" name="xtrainNotes" placeholder="e.g., 15' core + 20' mobility">
-      </label>
-
       <label>Notes
         <input type="text" name="notes" placeholder="Felt smooth, strides x6">
       </label>
     </div>
+
+    <!-- Workout builder -->
+    <details class="card" id="workoutBlock">
+      <summary><b>Workout builder (WU / Intervals / CD)</b></summary>
+      <div class="grid two">
+        <fieldset class="subcard">
+          <legend>Warmup</legend>
+          <label>Distance (<span class="unitLabel">mi</span>) <input type="number" step="0.01" id="wuDist"></label>
+          <label>Time (hh:mm:ss) <input type="text" id="wuTime" placeholder="0:10:00"></label>
+          <label>Shoe <input type="text" id="wuShoe" list="shoeDatalist"></label>
+        </fieldset>
+
+        <fieldset class="subcard">
+          <legend>Cooldown</legend>
+          <label>Distance (<span class="unitLabel">mi</span>) <input type="number" step="0.01" id="cdDist"></label>
+          <label>Time (hh:mm:ss) <input type="text" id="cdTime" placeholder="0:10:00"></label>
+          <label>Shoe <input type="text" id="cdShoe" list="shoeDatalist"></label>
+        </fieldset>
+      </div>
+
+      <fieldset class="subcard">
+        <legend>Intervals</legend>
+        <div id="intervals"></div>
+        <button type="button" class="btn small" id="addIntervalBtn">+ Add interval</button>
+      </fieldset>
+
+      <fieldset class="subcard">
+        <legend>Workout Shoe (for intervals)</legend>
+        <input type="text" id="woShoe" list="shoeDatalist" placeholder="e.g., Super shoe">
+      </fieldset>
+
+      <label>Workout notes
+        <input type="text" id="workoutNotes" placeholder="6×800 @ 3:00 (2')">
+      </label>
+    </details>
+
+    <!-- Race toggle + fields -->
+    <details class="card" id="raceBlock">
+      <summary><b>Race details</b> <span class="muted">(tick if this entry is a race)</span></summary>
+      <label><input type="checkbox" id="isRaceChk"> This is a race</label>
+      <div id="raceFields" hidden>
+        <div class="grid two">
+          <label>Race name <input type="text" id="raceName" placeholder="City Half Marathon"></label>
+          <label>Location <input type="text" id="raceLocation" placeholder="City, State"></label>
+          <label>Official distance (<span class="unitLabel">mi</span>) <input type="number" step="0.01" id="raceDist"></label>
+          <label>Official time (hh:mm:ss) <input type="text" id="raceTime" placeholder="1:23:45"></label>
+          <label>Place overall <input type="text" id="racePlace" placeholder="12 / 2,100"></label>
+          <label>Conditions <input type="text" id="raceConditions" placeholder="55°F, light wind"></label>
+          <label>Race shoe <input type="text" id="raceShoe" list="shoeDatalist" placeholder="e.g., Vaporfly"></label>
+        </div>
+        <label>Race notes <input type="text" id="raceNotes" placeholder="Split well, strong finish"></label>
+      </div>
+    </details>
+
+    <!-- Cross-training: multiple items with individual notes -->
+    <details class="card">
+      <summary><b>Cross-training items</b></summary>
+      <div id="xtrainItems"></div>
+      <div class="grid two">
+        <label>Activity
+          <input type="text" id="xtActivity" list="xtrainDatalist" placeholder="Core / Mobility / Bike">
+          <datalist id="xtrainDatalist"></datalist>
+        </label>
+        <label>Duration (min)
+          <input type="number" id="xtDuration" min="0" step="1" placeholder="20">
+        </label>
+      </div>
+      <label>Notes <input type="text" id="xtNotes" placeholder="e.g., plank series, band work"></label>
+      <button type="button" id="addXItem" class="btn small">+ Add cross-training item</button>
+    </details>
+
     <menu class="dialog-actions">
       <button id="cancelBtn" type="button" class="btn btn-outline">Cancel</button>
       <button id="saveBtn" type="submit" class="btn">Save</button>
@@ -277,6 +350,6 @@
 </div>
 
 <!-- cache-bust so you always load the latest JS -->
-<script src="app.js?v=103"></script>
+<script src="app.js?v=201"></script>
 </body>
 </html>
