@@ -48,3 +48,7 @@ a{color:var(--accent)} img{max-width:100%;display:block}
 .site-footer{padding:2rem 0;border-top:1px solid #1f2937;color:var(--muted);background:var(--surface);margin-top:1rem}
 .skip-link{position:absolute;left:-999px;top:-999px}.skip-link:focus{left:1rem;top:1rem;background:var(--accent);color:#000;padding:.5rem .75rem;border-radius:.5rem}
 @media (max-width:900px){.grid.two{grid-template-columns:1fr} .facts{grid-template-columns:1fr} .day{min-height:90px}}
+.badges { display: flex; flex-wrap: wrap; gap: .5rem; list-style: none; padding: 0; margin: .6rem 0 0; }
+.badges li { background: var(--card); border: 1px solid var(--border, #1f2937); padding: .35rem .6rem; border-radius: .6rem; display: inline-flex; align-items: center; gap: .4rem; }
+.badges li button { border: 1px solid var(--border, #334155); background: transparent; color: var(--muted); border-radius: .4rem; padding: .15rem .35rem; cursor: pointer; }
+.badges li button:hover { color: var(--text); }
