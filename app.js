@@ -1,4 +1,4 @@
-// RunLog — localStorage only (no profiles), Monday calendar, separate entries + Tools (types/routes/shoes/surfaces/xtrain)
+// RunLog — Monday calendar, rich workouts, multi XT w/ notes, races, per-segment shoes & mileage
 (function(){
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
@@ -7,17 +7,17 @@
   const settingsKey = 'runlog.settings.v1';
   const metaKey     = 'runlog.meta.v1';
 
-  const defaultTypes = ['Easy','Long','Workout','Race','Tempo','Intervals','Recovery','Trail'];
-  const defaultXTrain = ['Core','Mobility','Yoga','Strength—Upper','Strength—Lower','Bike','Swim','Elliptical','Row'];
+  const defaultTypes   = ['Easy','Long','Workout','Race','Tempo','Intervals','Recovery','Trail'];
+  const defaultXTrain  = ['Core','Mobility','Yoga','Strength—Upper','Strength—Lower','Bike','Swim','Elliptical','Row'];
+  const SHOE_WARN_MILES = 400;
 
   // Load state
   let settings = load(settingsKey) || { units:'mi', weeklyGoal:0 };
   let units = settings.units || 'mi';
   let meta = load(metaKey) || { types: defaultTypes.slice(), routes: [], shoes: [], surfaces: [], xtrain: defaultXTrain.slice() };
-  // Backfill meta keys if upgrading
-  meta.shoes ||= [];
+  meta.shoes    ||= [];
   meta.surfaces ||= [];
-  meta.xtrain ||= defaultXTrain.slice();
+  meta.xtrain   ||= defaultXTrain.slice();
 
   let runs = load(storageKey) || [];
 
@@ -29,45 +29,46 @@
   const runForm = $('#runForm');
   const cancelBtn = $('#cancelBtn');
 
-  const unitSelect = $('#unitSelect');
-  const weeklyGoalInput = $('#weeklyGoal');
+  // Filters / lists / charts
   const runsTbody = $('#runsTbody');
-  const unitLabels = $$('.unitLabel');
-
+  const racesTbody = $('#racesTbody');
   const startDate = $('#startDate'), endDate = $('#endDate');
   const typeFilter = $('#typeFilter'), searchText = $('#searchText');
   const clearFilters = $('#clearFilters');
+  const monthLabel = $('#monthLabel'), calendarGrid = $('#calendarGrid');
+  const prevMonth = $('#prevMonth'), nextMonth = $('#nextMonth');
+  const chartMonthly = $('#chartMonthly'), chartWeekday = $('#chartWeekday'), chartTypes = $('#chartTypes');
+  const shoeListStats = $('#shoeList');
 
-  const monthLabel = $('#monthLabel');
-  const calendarGrid = $('#calendarGrid');
-  const prevMonth = $('#prevMonth'); const nextMonth = $('#nextMonth');
+  // Settings
+  const unitLabels = $$('.unitLabel');
+  const unitSelect = $('#unitSelect');
+  const weeklyGoalInput = $('#weeklyGoal');
 
-  const chartMonthly = $('#chartMonthly'); const chartWeekday = $('#chartWeekday'); const chartTypes = $('#chartTypes');
-
+  // Import/Export
   const exportJsonBtn = $('#exportJson'); const exportCsvBtn = $('#exportCsv'); const importFile = $('#importFile');
 
-  // Dialog fields & datalists
+  // Dialog fields
   const typeSelect = $('#typeSelect');
-  const routeInput = $('#routeInput'); const routeDatalist = $('#routeDatalist');
+  const routeInput = $('#routeInput'), routeDatalist = $('#routeDatalist');
   const sessionSelect = $('#sessionSelect');
-  const shoeInput = $('#shoeInput'); const shoeDatalist = $('#shoeDatalist');
-  const surfaceInput = $('#surfaceInput'); const surfaceDatalist = $('#surfaceDatalist');
-  const xtrainSelect = $('#xtrainSelect');
+  const shoeInput = $('#shoeInput'), shoeDatalist = $('#shoeDatalist');
+  const surfaceInput = $('#surfaceInput'), surfaceDatalist = $('#surfaceDatalist');
+  const xtrainSelect = $('#xtrainSelect'); // (unused now; replaced by XT rows)
+  const wbTbody = $('#wbTbody');
+  const xtTbody = $('#xtTbody');
+
+  // Workout buttons
+  const wbAddWU = $('#wbAddWU'), wbAddRep = $('#wbAddRep'), wbAddRest = $('#wbAddRest'), wbAddCD = $('#wbAddCD'), wbClear = $('#wbClear');
+  // XT buttons
+  const xtAdd = $('#xtAdd'), xtClear = $('#xtClear');
 
   // Tools tab controls
-  const newTypeInput = $('#newTypeInput'); const addTypeBtn = $('#addTypeBtn'); const typeListUI = $('#typeList');
-  const newRouteInput = $('#newRouteInput'); const addRouteBtn = $('#addRouteBtn'); const routeListUI = $('#routeListUI');
-  const newShoeInput = $('#newShoeInput'); const addShoeBtn = $('#addShoeBtn'); const shoeListUI = $('#shoeListUI');
-  const newSurfaceInput = $('#newSurfaceInput'); const addSurfaceBtn = $('#addSurfaceBtn'); const surfaceListUI = $('#surfaceListUI');
-  const newXTrainInput = $('#newXTrainInput'); const addXTrainBtn = $('#addXTrainBtn'); const xtrainListUI = $('#xtrainListUI');
-
-  // Shoes stats
-  const shoeListStats = $('#shoeList');
-  const SHOE_WARN_MILES = 400;
-
-  // Toast / Undo
-  const toast = $('#toast'), toastMsg = $('#toastMsg'), toastUndo = $('#toastUndo');
-  let lastDeleted = null; let toastTimer = null;
+  const newTypeInput = $('#newTypeInput'), addTypeBtn = $('#addTypeBtn'), typeListUI = $('#typeList');
+  const newRouteInput = $('#newRouteInput'), addRouteBtn = $('#addRouteBtn'), routeListUI = $('#routeListUI');
+  const newShoeInput = $('#newShoeInput'), addShoeBtn = $('#addShoeBtn'), shoeListUI = $('#shoeListUI');
+  const newSurfaceInput = $('#newSurfaceInput'), addSurfaceBtn = $('#addSurfaceBtn'), surfaceListUI = $('#surfaceListUI');
+  const newXTrainInput = $('#newXTrainInput'), addXTrainBtn = $('#addXTrainBtn'), xtrainListUI = $('#xtrainListUI');
 
   document.getElementById('year').textContent = new Date().getFullYear();
 
@@ -88,11 +89,11 @@
     if(btn.dataset.tab==='stats'){ drawAllCharts(); renderShoeStatsList(); }
     if(btn.dataset.tab==='calendar'){ renderCalendar(); }
     if(btn.dataset.tab==='list'){ renderList(); }
+    if(btn.dataset.tab==='races'){ renderRaces(); }
     if(btn.dataset.tab==='tools'){ renderAllTools(); }
-    if(btn.dataset.tab==='settings'){ /* noop */ }
   }));
 
-  // Settings
+  // Settings init
   unitSelect && (unitSelect.value = units);
   weeklyGoalInput && (weeklyGoalInput.value = settings.weeklyGoal || '');
   unitLabels.forEach(el => el.textContent = ulabel());
@@ -102,7 +103,7 @@
     units = settings.units;
     unitLabels.forEach(el => el.textContent = ulabel());
     save(settingsKey, settings);
-    renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeStatsList();
+    renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
     alert('Settings saved.');
   });
 
@@ -120,24 +121,40 @@
     const type = fd.get('type') || 'Easy';
     const distance = parseFloat(invDist(parseFloat(fd.get('distance')||'0')));
     const timeSecs = parseHMS(fd.get('time')||'0:00');
-
-    const route = (fd.get('route')||'').trim();
-    const notes = (fd.get('notes')||'').trim();
     const session = (fd.get('session')||'').trim();
     const shoe = (fd.get('shoe')||'').trim();
     const surface = (fd.get('surface')||'').trim();
-    const workout = (fd.get('workout')||'').trim();
-    const xtrainNotes = (fd.get('xtrainNotes')||'').trim();
-    const xtrain = Array.from(xtrainSelect?.selectedOptions || []).map(o=>o.value.trim()).filter(Boolean);
+    const route = (fd.get('route')||'').trim();
+    const workoutTitle = (fd.get('workout')||'').trim();
 
     if(!date || !timeSecs || !distance){ alert('Please provide date, distance, and time.'); return; }
 
+    // Build segments from Workout builder
+    const segments = readWorkoutSegments();
+
+    // Build cross-training items from table
+    const xtrain = readXTrainRows(); // [{name, notes}, ...]
+
+    // Race info
+    const isRace = $('#isRace')?.checked || false;
+    const race = isRace ? {
+      name: $('#raceName').value.trim(),
+      location: $('#raceLocation').value.trim(),
+      distance: $('#raceDistance').value.trim(),
+      officialTime: $('#raceOfficialTime').value.trim(),
+      place: $('#racePlace').value.trim(),
+      notes: $('#raceNotes').value.trim()
+    } : null;
+
+    const notes = (fd.get('notes')||'').trim();
+
     const entry = {
       id: id || String(Date.now()),
-      date, type, distance, time: timeSecs,
-      route, notes,
-      session, shoe, surface, workout,
-      xtrain, xtrainNotes
+      date, type, distance, time: timeSecs, session,
+      shoe, surface, route, workout: workoutTitle,
+      segments, // [{kind, distance, time, shoe}]
+      xtrain,   // [{name, notes}]
+      isRace, race
     };
 
     // Save or update
@@ -148,82 +165,151 @@
       runs.push(entry);
     }
 
-    // Auto-learn catalogs from entry
+    // Auto-learn catalogs
     learnToMeta(meta.routes, route);
     learnToMeta(meta.shoes, shoe);
     learnToMeta(meta.surfaces, surface);
-    xtrain.forEach(x => learnToMeta(meta.xtrain, x));
+    segments.forEach(s => learnToMeta(meta.shoes, s.shoe));
+    xtrain.forEach(x => learnToMeta(meta.xtrain, x.name));
     save(metaKey, meta);
 
     save(storageKey, runs);
     runDialog.close();
-    renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeStatsList();
+    renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
     renderDatalistsAndSelects();
   });
-  runDialog.addEventListener('close', () => runForm.reset());
+
+  runDialog.addEventListener('close', () => {
+    runForm.reset();
+    clearWorkoutTable();
+    clearXTrainTable();
+    $('#isRace') && ($('#isRace').checked = false);
+  });
 
   function openRunDialog(date=null, existing=null){
     $('#dialogTitle').textContent = existing ? 'Edit Run' : 'Add Run';
     renderDatalistsAndSelects();
+    clearWorkoutTable(); clearXTrainTable();
 
     if(existing){
       runForm.elements['date'].value = existing.date;
       runForm.elements['type'].value = existing.type;
       runForm.elements['distance'].value = fmtDist(existing.distance).toFixed(2);
       runForm.elements['time'].value = secToHMS(existing.time);
-
+      sessionSelect && (sessionSelect.value = existing.session || '');
+      shoeInput && (shoeInput.value = existing.shoe || '');
+      surfaceInput && (surfaceInput.value = existing.surface || '');
       runForm.elements['route'].value = existing.route || '';
+      runForm.elements['workout'].value = existing.workout || '';
       runForm.elements['notes'].value = existing.notes || '';
       runForm.elements['id'].value = existing.id;
 
-      if(sessionSelect) sessionSelect.value = existing.session || '';
-      if(shoeInput) shoeInput.value = existing.shoe || '';
-      if(surfaceInput) surfaceInput.value = existing.surface || '';
-      if(runForm.elements['workout']) runForm.elements['workout'].value = existing.workout || '';
-      if(runForm.elements['xtrainNotes']) runForm.elements['xtrainNotes'].value = existing.xtrainNotes || '';
+      // segments
+      (existing.segments||[]).forEach(seg => addSegmentRow(seg.kind, fmtDist(seg.distance||0), secToHMS(seg.time||0), seg.shoe||''));
+      // xtrain items
+      (existing.xtrain||[]).forEach(it => addXTrainRow(it.name || '', it.notes || ''));
 
-      if(xtrainSelect){
-        Array.from(xtrainSelect.options).forEach(opt => {
-          opt.selected = (existing.xtrain || []).includes(opt.value);
-        });
+      // race
+      if(existing.isRace){
+        $('#isRace').checked = true;
+        $('#raceName').value = existing.race?.name || '';
+        $('#raceLocation').value = existing.race?.location || '';
+        $('#raceDistance').value = existing.race?.distance || '';
+        $('#raceOfficialTime').value = existing.race?.officialTime || '';
+        $('#racePlace').value = existing.race?.place || '';
+        $('#raceNotes').value = existing.race?.notes || '';
       }
     } else {
       runForm.elements['date'].value = date || todayISO();
       runForm.elements['id'].value = '';
-      ['distance','time','route','notes','workout','xtrainNotes'].forEach(n => runForm.elements[n] && (runForm.elements[n].value=''));
-      if(sessionSelect) sessionSelect.value = '';
-      if(shoeInput) shoeInput.value = '';
-      if(surfaceInput) surfaceInput.value = '';
-      if(xtrainSelect) Array.from(xtrainSelect.options).forEach(opt => opt.selected = false);
     }
-
     runDialog.showModal();
   }
+
+  // Workout builder helpers
+  function addSegmentRow(kind='WU', dist='', time='', shoe=''){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <select class="wb-kind">
+          ${['WU','Rep','Rest','CD','Other'].map(k=>`<option ${k===kind?'selected':''}>${k}</option>`).join('')}
+        </select>
+      </td>
+      <td><input type="number" class="wb-dist" min="0" step="0.01" value="${escAttr(dist)}"></td>
+      <td><input type="text" class="wb-time" placeholder="0:10:00" value="${escAttr(time)}"></td>
+      <td>
+        <input type="text" class="wb-shoe" list="shoeDatalist" placeholder="e.g., Pegasus 40" value="${escAttr(shoe)}">
+      </td>
+      <td><button type="button" class="btn small btn-outline wb-del">Del</button></td>
+    `;
+    tr.querySelector('.wb-del').addEventListener('click', ()=> tr.remove());
+    wbTbody.appendChild(tr);
+  }
+  function clearWorkoutTable(){ wbTbody.innerHTML=''; }
+  function readWorkoutSegments(){
+    const rows = Array.from(wbTbody.querySelectorAll('tr'));
+    return rows.map(r=>{
+      const kind = r.querySelector('.wb-kind').value;
+      const dist = parseFloat(invDist(parseFloat(r.querySelector('.wb-dist').value||'0'))) || 0;
+      const time = parseHMS(r.querySelector('.wb-time').value || '0:00') || 0;
+      const shoe = (r.querySelector('.wb-shoe').value||'').trim();
+      return { kind, distance: dist, time, shoe };
+    }).filter(s => (s.distance>0 || s.time>0));
+  }
+
+  $('#wbAddWU')?.addEventListener('click', ()=> addSegmentRow('WU'));
+  $('#wbAddRep')?.addEventListener('click',()=> addSegmentRow('Rep'));
+  $('#wbAddRest')?.addEventListener('click',()=> addSegmentRow('Rest'));
+  $('#wbAddCD')?.addEventListener('click', ()=> addSegmentRow('CD'));
+  $('#wbClear')?.addEventListener('click', ()=> clearWorkoutTable());
+
+  // Cross-training table helpers
+  function addXTrainRow(name='', notes=''){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <input type="text" class="xt-name" list="xtrainDatalist" placeholder="e.g., Core" value="${escAttr(name)}">
+        <datalist id="xtrainDatalist">
+          ${uniqSorted(meta.xtrain).map(n=>`<option value="${esc(n)}"></option>`).join('')}
+        </datalist>
+      </td>
+      <td><input type="text" class="xt-notes" placeholder="e.g., 15' plank circuit" value="${escAttr(notes)}"></td>
+      <td><button type="button" class="btn small btn-outline xt-del">Del</button></td>
+    `;
+    tr.querySelector('.xt-del').addEventListener('click', ()=> tr.remove());
+    xtTbody.appendChild(tr);
+  }
+  function clearXTrainTable(){ xtTbody.innerHTML=''; }
+  function readXTrainRows(){
+    return Array.from(xtTbody.querySelectorAll('tr')).map(r=>{
+      const name = (r.querySelector('.xt-name').value||'').trim();
+      const notes = (r.querySelector('.xt-notes').value||'').trim();
+      return name ? { name, notes } : null;
+    }).filter(Boolean);
+  }
+  $('#xtAdd')?.addEventListener('click', ()=> addXTrainRow());
+  $('#xtClear')?.addEventListener('click', ()=> clearXTrainTable());
 
   // Filters
   [startDate,endDate,typeFilter,searchText].forEach(el => el && el.addEventListener('input', applyFilters));
   clearFilters?.addEventListener('click', () => {
-    if(startDate) startDate.value = '';
-    if(endDate) endDate.value='';
-    if(typeFilter) typeFilter.value='';
-    if(searchText) searchText.value='';
+    startDate && (startDate.value=''); endDate && (endDate.value='');
+    typeFilter && (typeFilter.value=''); searchText && (searchText.value='');
     applyFilters();
   });
-  function applyFilters(){ renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeStatsList(); }
+  function applyFilters(){ renderList(); renderCalendar(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList(); }
 
-  // Calendar (Monday-first)
+  // Calendar (Mon-first)
   let viewYear = new Date().getFullYear();
   let viewMonth = new Date().getMonth();
-  prevMonth.addEventListener('click', ()=>{ changeMonth(-1); });
-  nextMonth.addEventListener('click', ()=>{ changeMonth(+1); });
-
+  prevMonth.addEventListener('click', ()=> changeMonth(-1));
+  nextMonth.addEventListener('click', ()=> changeMonth(+1));
   function changeMonth(delta){
     viewMonth += delta;
     if(viewMonth<0){ viewMonth=11; viewYear--; }
     if(viewMonth>11){ viewMonth=0; viewYear++; }
     renderCalendar();
   }
-
   const weekdayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   const shiftToMonday = d => (d+6)%7;
 
@@ -254,7 +340,6 @@
       wrap.className='day';
       const dateISO = toISO(new Date(viewYear, viewMonth, day));
       const dayRuns = filteredRuns().filter(r=>r.date===dateISO);
-
       const total = sum(dayRuns.map(r=>r.distance));
       const header = `
         <div class="date">
@@ -263,14 +348,14 @@
         </div>
         <div class="miles">${fmtDist(total).toFixed(2)} ${ulabel()}</div>
       `;
-
       const entriesHtml = dayRuns.map(r => {
         const pace = paceStr(r.time / Math.max(0.01, r.distance));
         const pills = [
-          pill(r.session),
+          pill(r.isRace?'Race':null),
+          pill(r.session, 'Session'),
           pill(r.shoe, 'Shoe'),
           pill(r.surface, 'Surface'),
-          pill((r.xtrain||[]).join(' · '), 'XT')
+          pill((r.xtrain||[]).map(x=>x.name).join(' · '), 'XT')
         ].filter(Boolean).join('');
         return `
           <div class="entry" data-id="${r.id}" title="Double-click to edit">
@@ -279,7 +364,6 @@
           </div>
         `;
       }).join('');
-
       wrap.innerHTML = header + `<div class="entries">${entriesHtml || ''}</div>`;
       wrap.addEventListener('dblclick', ()=> openRunDialog(dateISO));
       calendarGrid.appendChild(wrap);
@@ -303,14 +387,13 @@
     data.forEach(r => {
       const tr = document.createElement('tr');
       const pills = [
+        pill(r.isRace?'Race':null),
         pill(r.workout, 'Workout'),
         pill(r.surface, 'Surface'),
-        pill(r.effort, 'Effort'),
         pill(r.session, 'Session'),
         pill(r.shoe, 'Shoe'),
-        pill((r.xtrain||[]).join(' · '), 'XT'),
+        pill((r.xtrain||[]).map(x=>x.name).join(' · '), 'XT'),
       ].filter(Boolean).join(' ');
-
       tr.innerHTML = `
         <td>${r.date}</td>
         <td>${esc(r.type||'')}</td>
@@ -327,24 +410,36 @@
       tr.querySelector('.edit').addEventListener('click', ()=> openRunDialog(null, r));
       tr.querySelector('.del').addEventListener('click', ()=>{
         if(confirm('Delete this run?')){
-          const idx = runs.findIndex(x=>x.id===r.id);
-          if(idx>=0){
-            lastDeleted = { entry: runs[idx], index: idx };
-            runs.splice(idx,1);
-            save(storageKey, runs);
-            renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeStatsList();
-            showToast('Run deleted.', true, ()=>{
-              if(lastDeleted){
-                runs.splice(lastDeleted.index, 0, lastDeleted.entry);
-                save(storageKey, runs);
-                renderList(); renderCalendar(); updateStats(); drawAllCharts(); renderShoeStatsList();
-                lastDeleted = null;
-              }
-            });
-          }
+          runs = runs.filter(x=>x.id!==r.id);
+          save(storageKey, runs);
+          renderList(); renderCalendar(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
         }
       });
       runsTbody.appendChild(tr);
+    });
+  }
+
+  // Races tab
+  function renderRaces(){
+    if(!racesTbody) return;
+    const races = runs.filter(r=>r.isRace).sort((a,b)=> a.date<b.date?1:-1);
+    racesTbody.innerHTML = '';
+    races.forEach(r=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.date}</td>
+        <td>${esc(r.race?.name || '')}</td>
+        <td>${esc(r.race?.distance || '')}</td>
+        <td>${esc(r.race?.officialTime || '')}</td>
+        <td>${esc(r.race?.place || '')}</td>
+        <td>${esc(r.race?.location || '')}</td>
+        <td>${esc(r.race?.notes || '')}</td>
+        <td style="white-space:nowrap">
+          <button class="btn small btn-outline edit">Edit</button>
+        </td>
+      `;
+      tr.querySelector('.edit').addEventListener('click', ()=> openRunDialog(null, r));
+      racesTbody.appendChild(tr);
     });
   }
 
@@ -366,6 +461,18 @@
     $('#streak').textContent  = String(calcStreak(data));
     $('#roll7').textContent   = fmtDist(rollingMiles(data, 7)).toFixed(1);
     $('#roll30').textContent  = fmtDist(rollingMiles(data, 30)).toFixed(1);
+  }
+
+  function calcStreak(data){
+    const set = new Set(data.map(r=>r.date));
+    let d = new Date(); let streak = 0;
+    while(set.has(toISO(d))){ streak++; d.setDate(d.getDate()-1); }
+    return streak;
+  }
+  function rollingMiles(data, days){
+    const end = new Date();
+    const start = new Date(); start.setDate(end.getDate()-days+1);
+    return milesInRange(start, end, data);
   }
 
   // Charts
@@ -397,7 +504,6 @@
     ctx.textAlign='left'; ctx.font='bold 13px system-ui'; ctx.fillStyle=getCss('--text');
     ctx.fillText(title, pad, pad - 10);
   }
-  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
   // Aggregations
   function monthlyTotals(data){
@@ -412,8 +518,8 @@
   function weekdayTotalsMon(data){
     const arr = Array(7).fill(0);
     data.forEach(r=>{
-      const jsDay = new Date(r.date).getDay(); // 0..6
-      const monIndex = (jsDay+6)%7;            // 0=Mon
+      const jsDay = new Date(r.date).getDay();
+      const monIndex = (jsDay+6)%7;
       arr[monIndex] += r.distance;
     });
     return arr;
@@ -432,16 +538,13 @@
     });
   }
 
-  // Tools tab renderers + handlers
+  // Tools renderers / handlers
   function renderAllTools(){
     renderTypeListUI(); renderRouteListUI(); renderShoeListUI(); renderSurfaceListUI(); renderXTrainListUI();
   }
-
   function renderTypeListUI() {
     if (!typeListUI) return;
-    typeListUI.innerHTML = meta.types.map(t => `
-      <li>${esc(t)} <button type="button" data-type="${esc(t)}" title="Remove">×</button></li>
-    `).join('');
+    typeListUI.innerHTML = meta.types.map(t => `<li>${esc(t)} <button type="button" data-type="${esc(t)}" title="Remove">×</button></li>`).join('');
     typeListUI.querySelectorAll('button[data-type]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-type');
@@ -454,9 +557,7 @@
   function renderRouteListUI() {
     if (!routeListUI) return;
     const uniq = uniqSorted(meta.routes);
-    routeListUI.innerHTML = uniq.map(r => `
-      <li>${esc(r)} <button type="button" data-route="${esc(r)}" title="Remove">×</button></li>
-    `).join('');
+    routeListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-route="${esc(r)}" title="Remove">×</button></li>`).join('');
     routeListUI.querySelectorAll('button[data-route]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-route');
@@ -469,9 +570,7 @@
   function renderShoeListUI() {
     if (!shoeListUI) return;
     const uniq = uniqSorted(meta.shoes);
-    shoeListUI.innerHTML = uniq.map(r => `
-      <li>${esc(r)} <button type="button" data-shoe="${esc(r)}" title="Remove">×</button></li>
-    `).join('');
+    shoeListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-shoe="${esc(r)}" title="Remove">×</button></li>`).join('');
     shoeListUI.querySelectorAll('button[data-shoe]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-shoe');
@@ -484,9 +583,7 @@
   function renderSurfaceListUI() {
     if (!surfaceListUI) return;
     const uniq = uniqSorted(meta.surfaces);
-    surfaceListUI.innerHTML = uniq.map(r => `
-      <li>${esc(r)} <button type="button" data-surface="${esc(r)}" title="Remove">×</button></li>
-    `).join('');
+    surfaceListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-surface="${esc(r)}" title="Remove">×</button></li>`).join('');
     surfaceListUI.querySelectorAll('button[data-surface]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-surface');
@@ -499,25 +596,23 @@
   function renderXTrainListUI() {
     if (!xtrainListUI) return;
     const uniq = uniqSorted(meta.xtrain);
-    xtrainListUI.innerHTML = uniq.map(r => `
-      <li>${esc(r)} <button type="button" data-xtrain="${esc(r)}" title="Remove">×</button></li>
-    `).join('');
+    xtrainListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-xtrain="${esc(r)}" title="Remove">×</button></li>`).join('');
     xtrainListUI.querySelectorAll('button[data-xtrain]').forEach(btn => {
       btn.addEventListener('click', () => {
         const name = btn.getAttribute('data-xtrain');
         meta.xtrain = meta.xtrain.filter(x => x !== name);
         save(metaKey, meta);
-        renderXTrainListUI(); renderXTrainSelect();
+        renderXTrainListUI();
       });
     });
   }
 
-  // Add buttons
+  // Add in Tools
   addTypeBtn?.addEventListener('click', () => addToList(newTypeInput, meta.types, () => { renderTypeListUI(); renderTypeSelect(); renderTypeFilterOptions(); }));
   addRouteBtn?.addEventListener('click', () => addToList(newRouteInput, meta.routes, () => { renderRouteListUI(); renderRouteDatalist(); }));
   addShoeBtn?.addEventListener('click', () => addToList(newShoeInput, meta.shoes, () => { renderShoeListUI(); renderShoeDatalist(); renderShoeStatsList(); }));
   addSurfaceBtn?.addEventListener('click', () => addToList(newSurfaceInput, meta.surfaces, () => { renderSurfaceListUI(); renderSurfaceDatalist(); }));
-  addXTrainBtn?.addEventListener('click', () => addToList(newXTrainInput, meta.xtrain, () => { renderXTrainListUI(); renderXTrainSelect(); }));
+  addXTrainBtn?.addEventListener('click', () => addToList(newXTrainInput, meta.xtrain, () => { renderXTrainListUI(); }));
 
   function addToList(input, arr, after){
     const name = normalizeName(input?.value);
@@ -534,10 +629,10 @@
   }
   function uniqSorted(arr){ return Array.from(new Set(arr)).sort((a,b)=>a.localeCompare(b)); }
 
-  // Datalists/selects used by dialog
+  // Datalists/selects for dialog
   function renderDatalistsAndSelects(){
     renderTypeSelect(); renderTypeFilterOptions();
-    renderRouteDatalist(); renderShoeDatalist(); renderSurfaceDatalist(); renderXTrainSelect();
+    renderRouteDatalist(); renderShoeDatalist(); renderSurfaceDatalist();
   }
   function renderTypeSelect() {
     if (!typeSelect) return;
@@ -563,18 +658,20 @@
     const names = uniqSorted(meta.surfaces.length ? meta.surfaces : runs.map(r=>r.surface).filter(Boolean));
     surfaceDatalist.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
   }
-  function renderXTrainSelect(){
-    if(!xtrainSelect) return;
-    const names = uniqSorted(meta.xtrain.length ? meta.xtrain : runs.flatMap(r=>r.xtrain||[]));
-    xtrainSelect.innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  }
 
-  // Shoes stats
+  // Shoes stats (segment-aware)
   function shoeTotalsMiles(data){
     const map = {};
     data.forEach(r=>{
-      if(!r.shoe) return;
-      map[r.shoe] = (map[r.shoe] || 0) + (r.distance || 0);
+      const segs = Array.isArray(r.segments) ? r.segments.filter(s=> (s.distance||0) > 0) : [];
+      if(segs.length){
+        segs.forEach(s=>{
+          if(!s.shoe) return;
+          map[s.shoe] = (map[s.shoe] || 0) + (s.distance || 0);
+        });
+      } else if (r.shoe) {
+        map[r.shoe] = (map[r.shoe] || 0) + (r.distance || 0);
+      }
     });
     return map;
   }
@@ -590,6 +687,47 @@
       return `<li>${label}${warn ? ' <span class="pill warn" title="Consider retiring this shoe">⚠︎ 400+ mi</span>' : ''}</li>`;
     }).join('');
   }
+
+  // Export/Import
+  exportJsonBtn.addEventListener('click', ()=>{
+    download('runlog.json', JSON.stringify(runs, null, 2));
+  });
+  exportCsvBtn.addEventListener('click', ()=>{
+    const header = ['date','type','distance_mi','time_sec','route','notes'];
+    const rows = runs.map(r => [r.date, r.type, r.distance, r.time, escCsv(r.route||''), escCsv(r.notes||'')]);
+    const csv = [header.join(','), ...rows.map(r=>r.join(','))].join('\n');
+    download('runlog.csv', csv);
+  });
+  importFile.addEventListener('change', async (e)=>{
+    const file = e.target.files[0]; if(!file) return;
+    const text = await file.text();
+    try {
+      let imported = [];
+      if(file.name.endsWith('.json')){
+        const data = JSON.parse(text);
+        if(Array.isArray(data)){ imported = data; }
+      } else { imported = parseCsv(text); }
+      const keyOf = r => [r.date, r.distance, r.time, r.type, r.route||''].join('|');
+      const existingKeys = new Set(runs.map(keyOf));
+      imported.forEach(r => {
+        const obj = normalizeImported(r);
+        if(!obj) return; if(existingKeys.has(keyOf(obj))) return;
+        runs.push(obj);
+        // learn from imported
+        learnToMeta(meta.routes, obj.route);
+        learnToMeta(meta.shoes, obj.shoe);
+        learnToMeta(meta.surfaces, obj.surface);
+        (obj.xtrain||[]).forEach(x=>learnToMeta(meta.xtrain, x.name));
+        (obj.segments||[]).forEach(s=> learnToMeta(meta.shoes, s.shoe));
+      });
+      save(metaKey, meta);
+      save(storageKey, runs);
+      renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
+      renderDatalistsAndSelects(); renderAllTools();
+      alert(`Imported ${imported.length} runs.`);
+      e.target.value = '';
+    } catch(err){ alert('Import failed: '+err.message); }
+  });
 
   // Utils
   function load(key){ try { return JSON.parse(localStorage.getItem(key)||'null'); } catch(e){ return null; } }
@@ -619,52 +757,14 @@
   }
   function normalizeName(s){ return (s||'').trim(); }
   function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+  function escAttr(s){ return String(s||'').replace(/"/g,'&quot;'); }
   function fmtDist(d){ return units==='km' ? (d*1.60934) : d; }
   function invDist(d){ return units==='km' ? (d/1.60934) : d; }
   function ulabel(){ return units==='km' ? 'km' : 'mi'; }
   function paceStr(secs){ if(!isFinite(secs)||secs<=0) return '—'; const m=Math.floor(secs/60), s=String(Math.round(secs%60)).padStart(2,'0'); return `${m}:${s}`; }
   function pill(text, title){ if(!text) return ''; return ` <span class="pill" ${title?`title="${esc(title)}"`:''}>${esc(text)}</span>`; }
+  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
-  // Export/Import
-  exportJsonBtn.addEventListener('click', ()=>{
-    download('runlog.json', JSON.stringify(runs, null, 2));
-  });
-  exportCsvBtn.addEventListener('click', ()=>{
-    const header = ['date','type','distance_mi','time_sec','route','notes'];
-    const rows = runs.map(r => [r.date, r.type, r.distance, r.time, escCsv(r.route||''), escCsv(r.notes||'')]);
-    const csv = [header.join(','), ...rows.map(r=>r.join(','))].join('\n');
-    download('runlog.csv', csv);
-  });
-  importFile.addEventListener('change', async (e)=>{
-    const file = e.target.files[0]; if(!file) return;
-    const text = await file.text();
-    try {
-      let imported = [];
-      if(file.name.endsWith('.json')){
-        const data = JSON.parse(text);
-        if(Array.isArray(data)){ imported = data; }
-      } else { imported = parseCsv(text); }
-      const keyOf = r => [r.date, r.distance, r.time, r.type, r.route||''].join('|');
-      const existingKeys = new Set(runs.map(keyOf));
-      imported.forEach(r => {
-        const obj = normalizeImported(r);
-        if(!obj) return;
-        if(existingKeys.has(keyOf(obj))) return;
-        runs.push(obj);
-        // learn from imported
-        learnToMeta(meta.routes, obj.route);
-        learnToMeta(meta.shoes, obj.shoe);
-        learnToMeta(meta.surfaces, obj.surface);
-        (obj.xtrain||[]).forEach(x=>learnToMeta(meta.xtrain, x));
-      });
-      save(metaKey, meta);
-      save(storageKey, runs);
-      renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeStatsList();
-      renderDatalistsAndSelects(); renderAllTools();
-      alert(`Imported ${imported.length} runs.`);
-      e.target.value = '';
-    } catch(err){ alert('Import failed: '+err.message); }
-  });
   function download(filename, content){
     const blob = new Blob([content], {type:'text/plain'});
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
@@ -720,33 +820,16 @@
         id: String(Date.now())+Math.random().toString(16).slice(2),
         date, type, distance, time, route, notes,
         session: r.session || '', shoe: r.shoe || '', surface: r.surface || '', workout: r.workout || '',
-        xtrain: Array.isArray(r.xtrain) ? r.xtrain : [], xtrainNotes: r.xtrainNotes || ''
+        segments: Array.isArray(r.segments)? r.segments : [],
+        xtrain: Array.isArray(r.xtrain) ? r.xtrain.map(x=>({name:x.name||'', notes:x.notes||''})) : [],
+        isRace: !!r.isRace,
+        race: r.race || null
       };
     }catch{ return null; }
   }
 
-  // Toast
-  function showToast(msg, withUndo, undoFn){
-    if(!toast) return;
-    toastMsg.textContent = msg;
-    toast.hidden = false;
-    toastUndo.hidden = !withUndo;
-    toastUndo.onclick = () => { hideToast(); undoFn && undoFn(); };
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(hideToast, 7000);
-  }
-  function hideToast(){
-    if(!toast) return;
-    toast.hidden = true;
-    clearTimeout(toastTimer);
-    toastTimer = null;
-  }
-
   // Initial render
-  renderCalendar(); renderList(); updateStats(); drawAllCharts(); renderShoeStatsList();
+  renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
   renderDatalistsAndSelects(); renderAllTools();
-
-  // Helpers
-  function getCss(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
 })();
