@@ -1,0 +1,50 @@
+/* Modern, accessible, responsive styles */
+*{box-sizing:border-box}
+:root{
+  --bg:#0b1020;--surface:#0f172a;--text:#e5e7eb;--muted:#94a3b8;--accent:#22d3ee;--card:#111827;--ring:#22d3ee55;
+}
+:root.light{
+  --bg:#f8fafc;--surface:#ffffff;--text:#0f172a;--muted:#475569;--accent:#0ea5e9;--card:#f1f5f9;--ring:#0ea5e955;
+}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif}
+.container{width:min(1100px,92%);margin:0 auto}
+a{color:var(--accent)} img{max-width:100%;display:block}
+.site-header{position:sticky;top:0;z-index:20;background:var(--surface);border-bottom:1px solid #1f2937}
+.nav{display:flex;align-items:center;justify-content:space-between;padding:.8rem 0}
+.brand{display:inline-flex;align-items:center;gap:.6rem;color:var(--text);font-weight:700}
+.logo{display:grid;place-items:center;width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,var(--accent),transparent);color:#000;font-weight:900}
+.menu{display:flex;gap:.4rem;list-style:none;margin:0;padding:0}
+.menu button{background:transparent;border:1px solid #334155;color:var(--text);padding:.5rem .7rem;border-radius:.6rem;cursor:pointer}
+.menu button[aria-selected="true"]{border-color:var(--accent)}
+.theme-btn{background:transparent;border:1px solid #334155;padding:.5rem .7rem;border-radius:.6rem;color:var(--text);cursor:pointer}
+.toolbar{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;justify-content:space-between;padding:1rem 0}
+.filters{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+.io{display:flex;gap:.6rem;align-items:center}
+.filelike{border:1px dashed #334155;padding:.5rem .7rem;border-radius:.6rem;cursor:pointer}
+.tab{display:none;padding:1rem 0}.tab.show{display:block}
+.cal-header{display:flex;align-items:center;gap:.8rem}
+#monthLabel{flex:1;text-align:center;margin:0}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:.5rem;margin-top:.8rem}
+.day{background:var(--card);border:1px solid #1f2937;border-radius:.6rem;min-height:110px;padding:.5rem;display:flex;flex-direction:column;gap:.3rem}
+.day .date{font-weight:700;color:var(--muted);display:flex;justify-content:space-between;align-items:center}
+.day .miles{margin-top:auto;font-weight:700}
+.day .add{background:transparent;border:1px dashed #334155;border-radius:.5rem;padding:.25rem .4rem;color:var(--text);font-size:.85rem;cursor:pointer}
+.muted{color:var(--muted)}
+.list-wrap{overflow:auto;background:var(--card);border:1px solid #1f2937;border-radius:.6rem}
+.runs-table{width:100%;border-collapse:collapse}
+.runs-table th,.runs-table td{border-bottom:1px solid #1f2937;padding:.6rem;text-align:left;vertical-align:top}
+.runs-table tr:hover{background:#0d1428}
+.btn{background:var(--accent);color:#000;border:none;padding:.6rem .9rem;border-radius:.6rem;font-weight:700;cursor:pointer}
+.btn:hover{filter:brightness(1.05)} .btn.small{padding:.35rem .6rem;font-size:.9rem}
+.btn-outline{background:transparent;border:1px solid var(--accent);color:var(--accent)}
+.grid.two{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}
+.card{background:var(--card);border:1px solid #1f2937;border-radius:.8rem;padding:1rem}
+.facts{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem}
+.facts li{display:flex;justify-content:space-between;background:rgba(255,255,255,.02);padding:.4rem .6rem;border-radius:.5rem}
+.form label{display:grid;gap:.3rem;margin-bottom:.7rem}
+.form input,.form select{background:var(--surface);color:var(--text);border:1px solid #334155;border-radius:.5rem;padding:.5rem .6rem;outline:none}
+.form input:focus,.form select:focus{border-color:var(--accent);box-shadow:0 0 0 4px var(--ring)}
+.dialog-actions{display:flex;justify-content:flex-end;gap:.6rem;margin-top:.6rem}
+.site-footer{padding:2rem 0;border-top:1px solid #1f2937;color:var(--muted);background:var(--surface);margin-top:1rem}
+.skip-link{position:absolute;left:-999px;top:-999px}.skip-link:focus{left:1rem;top:1rem;background:var(--accent);color:#000;padding:.5rem .75rem;border-radius:.5rem}
+@media (max-width:900px){.grid.two{grid-template-columns:1fr} .facts{grid-template-columns:1fr} .day{min-height:90px}}
