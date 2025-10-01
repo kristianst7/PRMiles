@@ -96,6 +96,16 @@
         <canvas id="chartMonthly" width="600" height="260" aria-label="Monthly mileage chart"></canvas>
       </article>
     </div>
+
+    <!-- NEW: Shoes mileage card -->
+    <div class="grid two">
+      <article class="card">
+        <h3>Shoes</h3>
+        <ul id="shoeList" class="badges" aria-live="polite"></ul>
+        <p class="muted">Total mileage per shoe (warning at 400&nbsp;mi).</p>
+      </article>
+    </div>
+
     <div class="grid two">
       <article class="card">
         <h3>Weekday distribution</h3>
@@ -176,6 +186,46 @@
         <input type="text" name="time" placeholder="0:45:00" required>
       </label>
 
+      <!-- NEW: Session (AM/PM) -->
+      <label>Session
+        <select name="session" id="sessionSelect">
+          <option value="">—</option>
+          <option>AM</option>
+          <option>PM</option>
+        </select>
+      </label>
+
+      <!-- NEW: Shoe with autocomplete -->
+      <label>Shoe
+        <input type="text" name="shoe" id="shoeInput" list="shoeDatalist" placeholder="e.g., Pegasus 40">
+        <datalist id="shoeDatalist"></datalist>
+      </label>
+
+      <!-- NEW: Workout details -->
+      <label>Workout
+        <input type="text" name="workout" placeholder="6×800 @ 3:00 (2')">
+      </label>
+
+      <!-- NEW: Surface / Effort -->
+      <label>Surface
+        <select name="surface" id="surfaceSelect">
+          <option value="">—</option>
+          <option>Road</option>
+          <option>Trail</option>
+          <option>Track</option>
+          <option>Mixed</option>
+        </select>
+      </label>
+
+      <label>Effort
+        <select name="effort" id="effortSelect">
+          <option value="">—</option>
+          <option>Easy</option>
+          <option>Moderate</option>
+          <option>Hard</option>
+        </select>
+      </label>
+
       <label>Route
         <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
         <datalist id="routeDatalist"></datalist>
@@ -193,7 +243,13 @@
   </form>
 </dialog>
 
+<!-- Toast / Undo -->
+<div id="toast" class="toast" role="status" aria-live="polite" hidden>
+  <span id="toastMsg"></span>
+  <button id="toastUndo" class="btn btn-outline small">Undo</button>
+</div>
+
 <!-- cache-bust so you always load the latest JS -->
-<script src="app.js?v=101"></script>
+<script src="app.js?v=102"></script>
 </body>
 </html>
