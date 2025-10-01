@@ -66,16 +66,13 @@
   const exportCsvBtn = $('#exportCsv');
   const importFile = $('#importFile');
 
-  // NEW: elements for custom lists + dialog fields
-  const typeSelect = document.getElementById('typeSelect');        // run dialog <select name="type" id="typeSelect">
-  const routeInput = document.getElementById('routeInput');        // run dialog <input name="route" id="routeInput" list="routeDatalist">
-  const routeDatalist = document.getElementById('routeDatalist');  // run dialog <datalist id="routeDatalist">
-
-  // Settings → Lists managers
+  // New elements for custom lists + dialog
+  const typeSelect = document.getElementById('typeSelect');
+  const routeInput = document.getElementById('routeInput');
+  const routeDatalist = document.getElementById('routeDatalist');
   const newTypeInput = document.getElementById('newTypeInput');
   const addTypeBtn = document.getElementById('addTypeBtn');
   const typeListUI = document.getElementById('typeList');
-
   const newRouteInput = document.getElementById('newRouteInput');
   const addRouteBtn = document.getElementById('addRouteBtn');
   const routeListUI = document.getElementById('routeListUI');
@@ -85,7 +82,7 @@
   // Theme
   const storedTheme = localStorage.getItem('theme');
   if(storedTheme) document.documentElement.classList.toggle('light', storedTheme==='light');
-  themeBtn.addEventListener('click', () => {
+  themeBtn?.addEventListener('click', () => {
     const isLight = document.documentElement.classList.toggle('light');
     localStorage.setItem('theme', isLight?'light':'dark');
   });
@@ -115,9 +112,18 @@
     alert('Settings saved.');
   });
 
-  // Dialog
+  // Dialog open
   addRunBtn.addEventListener('click', () => openRunDialog());
+
+  // Dialog submit (handles Cancel vs Save)
   runForm.addEventListener('submit', (e) => {
+    const action = e.submitter?.value; // 'cancel' or 'default'
+    if (action === 'cancel') {
+      e.preventDefault();
+      runDialog.close('cancel');
+      return;
+    }
+
     e.preventDefault();
     const fd = new FormData(runForm);
     const id = fd.get('id');
@@ -136,7 +142,7 @@
       runs.push(entry);
     }
 
-    // NEW: learn routes automatically
+    // Learn routes automatically
     if (entry.route) {
       const rname = normalizeName(entry.route);
       if (rname && !meta.routes.includes(rname)) {
@@ -151,6 +157,7 @@
     runDialog.close();
     renderCalendar(); renderList(); updateStats(); drawAllCharts();
   });
+
   runDialog.addEventListener('close', () => runForm.reset());
 
   function openRunDialog(date=null, existing=null){
@@ -167,6 +174,9 @@
       runForm.elements['date'].value = date || todayISO();
       runForm.elements['id'].value = '';
     }
+    // Ensure dynamic options are present before opening
+    renderTypeSelect();
+    renderRouteDatalist();
     runDialog.showModal();
   }
 
@@ -179,7 +189,6 @@
     if(searchText) searchText.value='';
     applyFilters();
   });
-
   function applyFilters(){ renderList(); renderCalendar(); updateStats(); drawAllCharts(); }
 
   // Calendar
@@ -271,16 +280,16 @@
       month: milesInRange(startOfMonth(new Date()), endOfMonth(new Date()), data),
       year: milesInRange(startOfYear(new Date()), endOfYear(new Date()), data)
     };
-    document.getElementById('mWeek').textContent = fmtDist(totals.week).toFixed(1);
-    document.getElementById('mMonth').textContent = fmtDist(totals.month).toFixed(1);
-    document.getElementById('mYear').textContent = fmtDist(totals.year).toFixed(1);
+    $('#mWeek').textContent = fmtDist(totals.week).toFixed(1);
+    $('#mMonth').textContent = fmtDist(totals.month).toFixed(1);
+    $('#mYear').textContent = fmtDist(totals.year).toFixed(1);
     const longest = data.reduce((m,r)=> Math.max(m, r.distance), 0);
-    document.getElementById('longest').textContent = fmtDist(longest).toFixed(1);
+    $('#longest').textContent = fmtDist(longest).toFixed(1);
     const avgPace = sum(data.map(r=>r.time)) / Math.max(1, sum(data.map(r=>r.distance)));
-    document.getElementById('avgPace').textContent = paceStr(avgPace);
-    document.getElementById('streak').textContent = String(calcStreak(data));
-    document.getElementById('roll7').textContent = fmtDist(rollingMiles(data, 7)).toFixed(1);
-    document.getElementById('roll30').textContent = fmtDist(rollingMiles(data, 30)).toFixed(1);
+    $('#avgPace').textContent = paceStr(avgPace);
+    $('#streak').textContent = String(calcStreak(data));
+    $('#roll7').textContent = fmtDist(rollingMiles(data, 7)).toFixed(1);
+    $('#roll30').textContent = fmtDist(rollingMiles(data, 30)).toFixed(1);
   }
 
   function calcStreak(data){
@@ -383,95 +392,7 @@
     return sum(data.filter(r => r.date >= s && r.date <= e).map(r => r.distance));
   }
 
-  // Export/Import
-  exportJsonBtn.addEventListener('click', ()=>{
-    download('runlog.json', JSON.stringify(runs, null, 2));
-  });
-  exportCsvBtn.addEventListener('click', ()=>{
-    const header = ['date','type','distance_mi','time_sec','route','notes'];
-    const rows = runs.map(r => [r.date, r.type, r.distance, r.time, escCsv(r.route||''), escCsv(r.notes||'')]);
-    const csv = [header.join(','), ...rows.map(r=>r.join(','))].join('\n');
-    download('runlog.csv', csv);
-  });
-  importFile.addEventListener('change', async (e)=>{
-    const file = e.target.files[0]; if(!file) return;
-    const text = await file.text();
-    try {
-      let imported = [];
-      if(file.name.endsWith('.json')){
-        const data = JSON.parse(text);
-        if(Array.isArray(data)){ imported = data; }
-      } else { imported = parseCsv(text); }
-      const keyOf = r => [r.date, r.distance, r.time, r.type, r.route||''].join('|');
-      const existingKeys = new Set(runs.map(keyOf));
-      imported.forEach(r => {
-        const obj = normalizeImported(r);
-        if(!obj) return;
-        if(existingKeys.has(keyOf(obj))) return;
-        runs.push(obj);
-      });
-      save(storageKey, runs);
-      renderCalendar(); renderList(); updateStats(); drawAllCharts();
-      alert(`Imported ${imported.length} runs.`);
-      e.target.value = '';
-    } catch(err){ alert('Import failed: '+err.message); }
-  });
-  function download(filename, content){
-    const blob = new Blob([content], {type:'text/plain'});
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
-  }
-  function escCsv(s){ return `"${String(s).replace(/"/g,'""')}"`; }
-  function parseCsv(text){
-    const lines = text.trim().split(/\r?\n/);
-    const header = lines[0].split(',');
-    const idx = {date: header.indexOf('date'), type: header.indexOf('type'), dist: header.indexOf('distance_mi'),
-                 time: header.indexOf('time_sec'), route: header.indexOf('route'), notes: header.indexOf('notes')};
-    const out = [];
-    for(let i=1;i<lines.length;i++){
-      const cols = splitCsvLine(lines[i]);
-      out.push({
-        date: cols[idx.date],
-        type: cols[idx.type] || 'Easy',
-        distance: parseFloat(cols[idx.dist]||'0'),
-        time: parseInt(cols[idx.time]||'0',10),
-        route: cols[idx.route]||'',
-        notes: cols[idx.notes]||''
-      });
-    }
-    return out;
-  }
-  function splitCsvLine(line){
-    const out = []; let cur=''; let inQ=false;
-    for(let i=0;i<line.length;i++){
-      const c = line[i];
-      if(inQ){
-        if(c==='"' && line[i+1]==='"'){ cur+='"'; i++; }
-        else if(c==='"'){ inQ=false; }
-        else cur+=c;
-      } else {
-        if(c===','){ out.push(cur); cur=''; }
-        else if(c==='"'){ inQ=true; }
-        else cur+=c;
-      }
-    }
-    out.push(cur);
-    return out;
-  }
-  function normalizeImported(r){
-    try{
-      const date = String(r.date).slice(0,10);
-      const distance = parseFloat(r.distance ?? r.distance_mi ?? 0);
-      const time = parseInt(r.time ?? r.time_sec ?? 0,10);
-      const type = r.type || 'Easy';
-      const route = r.route || '';
-      const notes = r.notes || '';
-      if(!date || !distance || !time) return null;
-      return { id: String(Date.now())+Math.random().toString(16).slice(2), date, type, distance, time, route, notes };
-    }catch{ return null; }
-  }
-
-  // ===== NEW: meta (types/routes) helpers & renderers =====
+  // ===== Meta (types/routes) helpers & renderers =====
   function saveMeta(){ save(metaKey, meta); }
   function normalizeName(s){ return (s||'').trim(); }
 
