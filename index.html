@@ -20,6 +20,7 @@
         <li><button class="tab-btn" data-tab="list">List</button></li>
         <li><button class="tab-btn" data-tab="stats">Stats</button></li>
         <li><button class="tab-btn" data-tab="settings">Settings</button></li>
+        <li><button id="profileBtn" class="theme-btn" aria-label="Profile / Login">👤 <span id="whoami">Guest</span></button></li>
         <li><button id="themeBtn" class="theme-btn" aria-label="Toggle theme">🌓</button></li>
       </ul>
     </nav>
@@ -58,7 +59,7 @@
       <button id="nextMonth" class="btn small">→</button>
     </div>
     <div class="calendar" id="calendarGrid" role="grid" aria-label="Monthly running calendar"></div>
-    <p class="muted">Tip: click a day to add a run; hover/tap to see totals.</p>
+    <p class="muted">Tip: double-click a day to add a run. AM/PM runs show separately.</p>
   </section>
 
   <section id="tab-list" class="tab">
@@ -123,7 +124,6 @@
     </article>
 
     <div class="grid two">
-      <!-- Run Types manager -->
       <article class="card">
         <h3>Run types</h3>
         <form id="typeForm" class="form" onsubmit="return false">
@@ -136,7 +136,6 @@
         <p class="muted">These appear in the Type dropdown and the Type filter.</p>
       </article>
 
-      <!-- Routes manager -->
       <article class="card">
         <h3>Routes</h3>
         <form id="routeForm" class="form" onsubmit="return false">
@@ -158,6 +157,7 @@
   </div>
 </footer>
 
+<!-- Run dialog -->
 <dialog id="runDialog">
   <form method="dialog" id="runForm" class="form">
     <h3 id="dialogTitle">Add Run</h3>
@@ -186,10 +186,31 @@
       </label>
     </div>
     <menu class="dialog-actions">
-      <button class="btn btn-outline" value="cancel">Cancel</button>
+      <button id="cancelBtn" type="button" class="btn btn-outline">Cancel</button>
       <button class="btn" value="default">Save</button>
     </menu>
     <input type="hidden" name="id">
+  </form>
+</dialog>
+
+<!-- Profile dialog -->
+<dialog id="profileDialog">
+  <form method="dialog" id="profileForm" class="form">
+    <h3>Profile / Login</h3>
+    <p class="muted">Profiles are stored locally for this browser. Optional PIN is not secure.</p>
+    <div class="grid two">
+      <label>Username
+        <input type="text" id="pfName" placeholder="e.g., kristian" required>
+      </label>
+      <label>PIN (optional)
+        <input type="password" id="pfPin" inputmode="numeric" pattern="[0-9]*" placeholder="e.g., 1234">
+      </label>
+    </div>
+    <menu class="dialog-actions">
+      <button id="pfCancel" type="button" class="btn btn-outline">Cancel</button>
+      <button id="pfLogin"  type="submit" class="btn">Login / Switch</button>
+      <button id="pfLogout" type="button" class="btn btn-outline">Logout</button>
+    </menu>
   </form>
 </dialog>
 
