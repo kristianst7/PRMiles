@@ -20,6 +20,7 @@
         <li><button class="tab-btn" data-tab="calendar" aria-selected="true">Calendar</button></li>
         <li><button class="tab-btn" data-tab="list">List</button></li>
         <li><button class="tab-btn" data-tab="stats">Stats</button></li>
+        <li><button class="tab-btn" data-tab="tools">Tools</button></li>
         <li><button class="tab-btn" data-tab="settings">Settings</button></li>
         <li><button id="themeBtn" class="theme-btn" aria-label="Toggle theme">🌓</button></li>
       </ul>
@@ -97,23 +98,83 @@
       </article>
     </div>
 
-    <!-- NEW: Shoes mileage card -->
     <div class="grid two">
       <article class="card">
         <h3>Shoes</h3>
         <ul id="shoeList" class="badges" aria-live="polite"></ul>
         <p class="muted">Total mileage per shoe (warning at 400&nbsp;mi).</p>
       </article>
-    </div>
-
-    <div class="grid two">
       <article class="card">
         <h3>Weekday distribution</h3>
         <canvas id="chartWeekday" width="600" height="260" aria-label="Weekday mileage chart"></canvas>
       </article>
+    </div>
+
+    <div class="grid two">
       <article class="card">
         <h3>Types breakdown</h3>
         <canvas id="chartTypes" width="600" height="260" aria-label="Run type chart"></canvas>
+      </article>
+    </div>
+  </section>
+
+  <!-- NEW: Tools tab for managing catalogs -->
+  <section id="tab-tools" class="tab">
+    <div class="grid two">
+      <article class="card">
+        <h3>Run types</h3>
+        <form id="typeForm" class="form" onsubmit="return false">
+          <label>Add a new type
+            <input id="newTypeInput" placeholder="e.g., Hills">
+          </label>
+          <button id="addTypeBtn" class="btn" type="button">Add type</button>
+        </form>
+        <ul id="typeList" class="badges" aria-live="polite"></ul>
+      </article>
+
+      <article class="card">
+        <h3>Routes</h3>
+        <form id="routeForm" class="form" onsubmit="return false">
+          <label>Add a new route
+            <input id="newRouteInput" placeholder="e.g., Towpath Loop">
+          </label>
+          <button id="addRouteBtn" class="btn" type="button">Add route</button>
+        </form>
+        <ul id="routeListUI" class="badges" aria-live="polite"></ul>
+      </article>
+
+      <article class="card">
+        <h3>Shoes</h3>
+        <form id="shoeForm" class="form" onsubmit="return false">
+          <label>Add a new shoe
+            <input id="newShoeInput" placeholder="e.g., Pegasus 40">
+          </label>
+          <button id="addShoeBtn" class="btn" type="button">Add shoe</button>
+        </form>
+        <ul id="shoeListUI" class="badges" aria-live="polite"></ul>
+      </article>
+
+      <article class="card">
+        <h3>Surfaces</h3>
+        <form id="surfaceForm" class="form" onsubmit="return false">
+          <label>Add a new surface
+            <input id="newSurfaceInput" placeholder="e.g., Dirt, Asphalt">
+          </label>
+          <button id="addSurfaceBtn" class="btn" type="button">Add surface</button>
+        </form>
+        <ul id="surfaceListUI" class="badges" aria-live="polite"></ul>
+      </article>
+
+      <article class="card">
+        <h3>Cross-training</h3>
+        <form id="xtrainForm" class="form" onsubmit="return false">
+          <label>Add a new activity
+            <input id="newXTrainInput" placeholder="e.g., Core Circuit, Mobility">
+          </label>
+          <button id="addXTrainBtn" class="btn" type="button">Add activity</button>
+        </form>
+        <ul id="xtrainListUI" class="badges" aria-live="polite"></ul>
+        <p class="muted">These appear in the Add Run dialog (multi-select) and are also auto-learned from your entries.</p>
       </article>
     </div>
   </section>
@@ -132,32 +193,6 @@
       </label>
       <button id="saveSettings" class="btn">Save</button>
     </article>
-
-    <div class="grid two">
-      <article class="card">
-        <h3>Run types</h3>
-        <form id="typeForm" class="form">
-          <label>Add a new type
-            <input id="newTypeInput" placeholder="e.g., Hills">
-          </label>
-          <button id="addTypeBtn" class="btn" type="button">Add type</button>
-        </form>
-        <ul id="typeList" class="badges" aria-live="polite"></ul>
-        <p class="muted">These appear in the Type dropdown and the Type filter.</p>
-      </article>
-
-      <article class="card">
-        <h3>Routes</h3>
-        <form id="routeForm" class="form">
-          <label>Add a new route
-            <input id="newRouteInput" placeholder="e.g., Towpath Loop">
-          </label>
-          <button id="addRouteBtn" class="btn" type="button">Add route</button>
-        </form>
-        <ul id="routeListUI" class="badges" aria-live="polite"></ul>
-        <p class="muted">These show as autocomplete suggestions when logging a run.</p>
-      </article>
-    </div>
   </section>
 </main>
 
@@ -186,7 +221,6 @@
         <input type="text" name="time" placeholder="0:45:00" required>
       </label>
 
-      <!-- NEW: Session (AM/PM) -->
       <label>Session
         <select name="session" id="sessionSelect">
           <option value="">—</option>
@@ -195,40 +229,33 @@
         </select>
       </label>
 
-      <!-- NEW: Shoe with autocomplete -->
+      <!-- Shoe + Surface as free text with datalist -->
       <label>Shoe
         <input type="text" name="shoe" id="shoeInput" list="shoeDatalist" placeholder="e.g., Pegasus 40">
         <datalist id="shoeDatalist"></datalist>
       </label>
 
-      <!-- NEW: Workout details -->
+      <label>Surface
+        <input type="text" name="surface" id="surfaceInput" list="surfaceDatalist" placeholder="e.g., Road, Trail">
+        <datalist id="surfaceDatalist"></datalist>
+      </label>
+
       <label>Workout
         <input type="text" name="workout" placeholder="6×800 @ 3:00 (2')">
-      </label>
-
-      <!-- NEW: Surface / Effort -->
-      <label>Surface
-        <select name="surface" id="surfaceSelect">
-          <option value="">—</option>
-          <option>Road</option>
-          <option>Trail</option>
-          <option>Track</option>
-          <option>Mixed</option>
-        </select>
-      </label>
-
-      <label>Effort
-        <select name="effort" id="effortSelect">
-          <option value="">—</option>
-          <option>Easy</option>
-          <option>Moderate</option>
-          <option>Hard</option>
-        </select>
       </label>
 
       <label>Route
         <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
         <datalist id="routeDatalist"></datalist>
+      </label>
+
+      <!-- NEW: Cross-training (multi-select + notes) -->
+      <label>Cross-training
+        <select id="xtrainSelect" name="xtrain" multiple size="4" aria-label="Cross-training activities"></select>
+      </label>
+
+      <label>XT Notes
+        <input type="text" name="xtrainNotes" placeholder="e.g., 15' core + 20' mobility">
       </label>
 
       <label>Notes
@@ -250,6 +277,6 @@
 </div>
 
 <!-- cache-bust so you always load the latest JS -->
-<script src="app.js?v=102"></script>
+<script src="app.js?v=103"></script>
 </body>
 </html>
