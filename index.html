@@ -126,7 +126,7 @@
     <div class="grid two">
       <article class="card">
         <h3>Run types</h3>
-        <form id="typeForm" class="form" onsubmit="return false">
+        <form id="typeForm" class="form">
           <label>Add a new type
             <input id="newTypeInput" placeholder="e.g., Hills">
           </label>
@@ -138,7 +138,7 @@
 
       <article class="card">
         <h3>Routes</h3>
-        <form id="routeForm" class="form" onsubmit="return false">
+        <form id="routeForm" class="form">
           <label>Add a new route
             <input id="newRouteInput" placeholder="e.g., Towpath Loop">
           </label>
@@ -157,9 +157,9 @@
   </div>
 </footer>
 
-<!-- Run dialog -->
+<!-- Run dialog (no method="dialog") -->
 <dialog id="runDialog">
-  <form method="dialog" id="runForm" class="form">
+  <form id="runForm" class="form">
     <h3 id="dialogTitle">Add Run</h3>
     <div class="grid two">
       <label>Date <input type="date" name="date" required></label>
@@ -187,15 +187,15 @@
     </div>
     <menu class="dialog-actions">
       <button id="cancelBtn" type="button" class="btn btn-outline">Cancel</button>
-      <button class="btn" value="default">Save</button>
+      <button id="saveBtn" type="submit" class="btn">Save</button>
     </menu>
     <input type="hidden" name="id">
   </form>
 </dialog>
 
-<!-- Profile dialog -->
+<!-- Profile dialog (no method="dialog") -->
 <dialog id="profileDialog">
-  <form method="dialog" id="profileForm" class="form">
+  <form id="profileForm" class="form">
     <h3>Profile / Login</h3>
     <p class="muted">Profiles are stored locally for this browser. Optional PIN is not secure.</p>
     <div class="grid two">
@@ -214,6 +214,7 @@
   </form>
 </dialog>
 
-<script src="app.js"></script>
+<!-- cache-bust the script so the browser loads the latest JS -->
+<script src="app.js?v=42"></script>
 </body>
 </html>
