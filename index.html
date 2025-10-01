@@ -107,21 +107,49 @@
     </div>
   </section>
 
-  <section id="tab-settings" class="tab">
+<section id="tab-settings" class="tab">
+  <article class="card">
+    <h3>Settings</h3>
+    <label>Preferred units
+      <select id="unitSelect">
+        <option value="mi">Miles</option>
+        <option value="km">Kilometers</option>
+      </select>
+    </label>
+    <label>Weekly mileage goal
+      <input type="number" id="weeklyGoal" min="0" step="1" placeholder="e.g., 60">
+    </label>
+    <button id="saveSettings" class="btn">Save</button>
+  </article>
+
+  <div class="grid two">
+    <!-- Run Types manager -->
     <article class="card">
-      <h3>Settings</h3>
-      <label>Preferred units
-        <select id="unitSelect">
-          <option value="mi">Miles</option>
-          <option value="km">Kilometers</option>
-        </select>
-      </label>
-      <label>Weekly mileage goal
-        <input type="number" id="weeklyGoal" min="0" step="1" placeholder="e.g., 60">
-      </label>
-      <button id="saveSettings" class="btn">Save</button>
+      <h3>Run types</h3>
+      <form id="typeForm" class="form" onsubmit="return false">
+        <label>Add a new type
+          <input id="newTypeInput" placeholder="e.g., Hills">
+        </label>
+        <button id="addTypeBtn" class="btn" type="button">Add type</button>
+      </form>
+      <ul id="typeList" class="badges" aria-live="polite"></ul>
+      <p class="muted">These appear in the Type dropdown and the Type filter.</p>
     </article>
-  </section>
+
+    <!-- Routes manager -->
+    <article class="card">
+      <h3>Routes</h3>
+      <form id="routeForm" class="form" onsubmit="return false">
+        <label>Add a new route
+          <input id="newRouteInput" placeholder="e.g., Towpath Loop">
+        </label>
+        <button id="addRouteBtn" class="btn" type="button">Add route</button>
+      </form>
+      <ul id="routeListUI" class="badges" aria-live="polite"></ul>
+      <p class="muted">These show as autocomplete suggestions when logging a run.</p>
+    </article>
+  </div>
+</section>
 </main>
 
 <footer class="site-footer">
@@ -135,20 +163,13 @@
     <h3 id="dialogTitle">Add Run</h3>
     <div class="grid two">
       <label>Date <input type="date" name="date" required></label>
-      <label>Type
-        <select name="type">
-          <option>Easy</option><option>Long</option><option>Workout</option>
-          <option>Race</option><option>Tempo</option><option>Intervals</option>
-          <option>Recovery</option><option>Trail</option>
-        </select>
-      </label>
-      <label>Distance (<span class="unitLabel">mi</span>)
-        <input type="number" name="distance" min="0" step="0.01" required>
-      </label>
-      <label>Time (hh:mm:ss)
-        <input type="text" name="time" placeholder="0:45:00" required>
-      </label>
-      <label>Route <input type="text" name="route" placeholder="Towpath Loop"></label>
+    <label>Type
+  <select name="type" id="typeSelect"></select>
+</label>
+<label>Route
+  <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
+  <datalist id="routeDatalist"></datalist>
+</label>
       <label>Notes <input type="text" name="notes" placeholder="Felt smooth, strides x6"></label>
     </div>
     <menu class="dialog-actions">
