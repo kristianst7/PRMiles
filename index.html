@@ -5,42 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>RunLog — Personal Running Log</title>
 <meta name="description" content="Track your runs with a calendar and list view, analyze stats, and view history.">
-<!-- Force light theme color -->
+<!-- Light-only -->
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="styles.css">
 <style>
-  /* ---------- Light-only override (kill dark mode) ---------- */
   :root { color-scheme: light; }
-  html, body { background: #ffffff; }
-  body[data-theme="dark"] { background: #ffffff !important; }
-  .dark, [data-theme="dark"], .theme-dark { background: #ffffff !important; color: #0f172a !important; }
-  /* Optional: subtle card look still works in light */
-  .card { background: #fff; }
-
-  /* ---------- Sticky toolbar (nice to have) ---------- */
+  html, body { background:#ffffff; }
   .toolbar { position: sticky; top: 0; z-index: 10; background: #fff; padding-top: .75rem; }
-
-  /* ---------- Weekday header row for Monday-start ---------- */
-  .weekday-row {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: .25rem;
-    margin: .5rem 0 .25rem;
-    font-size: .9rem;
-    color: #475569;
-    user-select: none;
-  }
-  .weekday-row span { text-align: center; font-weight: 600; }
-
-  /* Optional: make calendar cells align cleanly even when JS renders them */
-  .calendar[data-week-start="mon"] { --week-start: 1; } /* allow JS to read this if needed */
-
-  /* Tiny helper for hidden elements without inline style spaghetti */
   .hidden { display: none !important; }
 </style>
 </head>
-<body class="theme-light"><!-- force light -->
+<body class="theme-light">
 <a class="skip-link" href="#main">Skip to content</a>
 
 <header class="site-header">
@@ -54,8 +30,7 @@
         <li><button class="tab-btn" data-tab="races">Races</button></li>
         <li><button class="tab-btn" data-tab="tools">Tools</button></li>
         <li><button class="tab-btn" data-tab="settings">Settings</button></li>
-        <!-- Removed theme toggle to keep site light-only -->
-        <!-- <li><button id="themeBtn" class="theme-btn" aria-label="Toggle theme">🌓</button></li> -->
+        <!-- theme toggle removed to keep site light-only -->
       </ul>
     </nav>
   </div>
@@ -92,18 +67,8 @@
       <h2 id="monthLabel"></h2>
       <button id="nextMonth" class="btn small" aria-label="Next month">→</button>
     </div>
-
-    <!-- NEW: Monday→Sunday labels shown above grid -->
-    <div class="weekday-row" aria-hidden="true">
-      <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
-    </div>
-
-    <!-- Mark calendar as Monday-start; app.js can read this -->
-    <div class="calendar" id="calendarGrid" role="grid" aria-label="Monthly running calendar" data-week-start="mon"></div>
-
-    <!-- Optional: weekly summary strip (app.js can fill it) -->
-    <div id="weeklySummaryBar" class="muted" aria-live="polite"></div>
-
+    <!-- Calendar grid will render a Mon→Sun header row inside via app.js -->
+    <div class="calendar" id="calendarGrid" role="grid" aria-label="Monthly running calendar"></div>
     <p class="muted">Tip: double-click a day to add a run. AM/PM runs show separately.</p>
   </section>
 
@@ -162,7 +127,6 @@
     </div>
   </section>
 
-  <!-- Races tab -->
   <section id="tab-races" class="tab">
     <article class="card">
       <h3>Races</h3>
@@ -175,7 +139,6 @@
     </article>
   </section>
 
-  <!-- Tools tab -->
   <section id="tab-tools" class="tab">
     <div class="grid two">
       <article class="card">
@@ -251,7 +214,7 @@
       <button id="saveSettings" class="btn">Save</button>
     </article>
 
-    <!-- NEW: Supabase Account + Cloud Sync block -->
+    <!-- Supabase Account + Cloud Sync -->
     <article class="card" id="cloud-auth">
       <h3>Account</h3>
       <form id="authForm">
@@ -289,19 +252,15 @@
 
     <div class="grid two">
       <label>Date <input type="date" name="date" required></label>
-
       <label>Type
         <select name="type" id="typeSelect"></select>
       </label>
-
       <label>Distance (<span class="unitLabel">mi</span>)
         <input type="number" name="distance" min="0" step="0.01" required>
       </label>
-
       <label>Time (hh:mm:ss)
         <input type="text" name="time" placeholder="0:45:00" required>
       </label>
-
       <label>Session
         <select name="session" id="sessionSelect">
           <option value="">—</option>
@@ -309,22 +268,18 @@
           <option>PM</option>
         </select>
       </label>
-
       <label>Shoe
         <input type="text" name="shoe" id="shoeInput" list="shoeDatalist" placeholder="e.g., Pegasus 40">
         <datalist id="shoeDatalist"></datalist>
       </label>
-
       <label>Surface
         <input type="text" name="surface" id="surfaceInput" list="surfaceDatalist" placeholder="e.g., Road, Trail">
         <datalist id="surfaceDatalist"></datalist>
       </label>
-
       <label>Route
         <input type="text" name="route" id="routeInput" list="routeDatalist" placeholder="Towpath Loop">
         <datalist id="routeDatalist"></datalist>
       </label>
-
       <label>Workout title
         <input type="text" name="workout" placeholder="6×800 @ 3:00 (2')">
       </label>
@@ -338,6 +293,7 @@
           <thead>
             <tr><th>Kind</th><th>Distance (<span class="unitLabel">mi</span>)</th><th>Time (hh:mm:ss)</th><th>Shoe</th><th></th></tr>
           </thead>
+          <tbody id="wbTbody"></tbody>
         </table>
         <div class="wb-actions">
           <button type="button" class="btn small" id="wbAddWU">+ WU</button>
@@ -358,6 +314,7 @@
           <thead>
             <tr><th>Activity</th><th>Notes</th><th></th></tr>
           </thead>
+          <tbody id="xtTbody"></tbody>
         </table>
         <div class="wb-actions">
           <button type="button" class="btn small" id="xtAdd">+ Add activity</button>
@@ -394,94 +351,10 @@
 </div>
 
 <!-- cache-bust -->
-<script src="app.js?v=108"></script>
+<script src="app.js?v=109"></script>
 
-<!-- Supabase client & auth/sync (drop these files next to index.html) -->
+<!-- Supabase: client + auth/sync -->
 <script type="module" src="./supabaseClient.js"></script>
 <script type="module" src="./auth-and-sync.js"></script>
-
-<!-- Small patches: Monday-start, Edit buttons, light-only, extras -->
-<script>
-  // ----- Force light mode & remove any theme toggle behavior -----
-  try {
-    document.documentElement.classList.remove('dark','theme-dark');
-    document.body.classList.remove('dark','theme-dark');
-    document.body.classList.add('theme-light');
-    const themeBtn = document.getElementById('themeBtn');
-    if (themeBtn) themeBtn.remove();
-  } catch {}
-
-  // ----- Calendar Monday start: let app.js know (+ minimal front-end correction) -----
-  // If your calendar builder reads this, it will render Mon→Sun. If not, this still
-  // displays a Mon→Sun header (above) and we shim the start day for week math.
-  window.RUNLOG_WEEK_START = 'mon';
-
-  // Optional helper: compute ISO week-start (Mon=1 … Sun=7) if app.js needs it
-  window.runlogGetIsoDow = function(date) {
-    const d = new Date(date);
-    let dow = d.getDay(); // 0=Sun…6=Sat
-    return dow === 0 ? 7 : dow; // 1..7 where 1=Mon
-  };
-
-  // ----- Fix List "Edit" buttons via event delegation -----
-  // This works whether your rows render <button data-action="edit" data-id="...">
-  // or an edit icon with the same data attributes.
-  (function wireListEditDelegation(){
-    const tbody = document.getElementById('runsTbody');
-    if (!tbody) return;
-    tbody.addEventListener('click', (e) => {
-      const btn = e.target.closest('[data-action="edit"]');
-      if (!btn) return;
-      const id = btn.dataset.id;
-      if (!id) return;
-
-      // Prefer an existing edit API if present
-      if (typeof window.runlogOpenEditor === 'function') {
-        window.runlogOpenEditor(id);
-        return;
-      }
-      // Fallback: dispatch a custom event your app.js can listen for
-      window.dispatchEvent(new CustomEvent('runlog:edit', { detail: { id } }));
-    });
-  })();
-
-  // ----- Keyboard shortcuts (nice-to-have) -----
-  // "n" = new run, "s" = save (when dialog open), "Esc" = cancel dialog
-  document.addEventListener('keydown', (e) => {
-    if (e.target && /input|textarea|select/.test(e.target.tagName.toLowerCase())) return;
-    if (e.key === 'n') {
-      const addBtn = document.getElementById('addRunBtn');
-      if (addBtn) addBtn.click();
-    }
-  });
-  (function wireDialogKeys(){
-    const dlg = document.getElementById('runDialog');
-    if (!dlg) return;
-    dlg.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') {
-        document.getElementById('cancelBtn')?.click();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        e.preventDefault();
-        document.getElementById('saveBtn')?.click();
-      }
-    });
-  })();
-
-  // ----- Weekly summary bar placeholder (app.js can fill) -----
-  // If your app emits 'runlog:weekly-summary' with { html }, we render it.
-  (function wireWeeklySummary(){
-    const bar = document.getElementById('weeklySummaryBar');
-    if (!bar) return;
-    window.addEventListener('runlog:weekly-summary', (e) => {
-      if (e.detail?.html) bar.innerHTML = e.detail.html;
-    });
-  })();
-
-  // ----- Footer year -----
-  (function setYear(){
-    const y = document.getElementById('year');
-    if (y) y.textContent = new Date().getFullYear();
-  })();
-</script>
 </body>
 </html>
