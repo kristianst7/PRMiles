@@ -23,7 +23,6 @@
 
   // Elements
   const tabs = $$('.tab-btn'); const sections = $$('.tab');
-  const themeBtn = $('#themeBtn');
   const addRunBtn = $('#addRunBtn');
   const runDialog = $('#runDialog');
   const runForm = $('#runForm');
@@ -54,7 +53,6 @@
   const sessionSelect = $('#sessionSelect');
   const shoeInput = $('#shoeInput'), shoeDatalist = $('#shoeDatalist');
   const surfaceInput = $('#surfaceInput'), surfaceDatalist = $('#surfaceDatalist');
-  const xtrainSelect = $('#xtrainSelect'); // (unused now; replaced by XT rows)
   const wbTbody = $('#wbTbody');
   const xtTbody = $('#xtTbody');
 
@@ -63,23 +61,8 @@
   // XT buttons
   const xtAdd = $('#xtAdd'), xtClear = $('#xtClear');
 
-  // Tools tab controls
-  const newTypeInput = $('#newTypeInput'), addTypeBtn = $('#addTypeBtn'), typeListUI = $('#typeList');
-  const newRouteInput = $('#newRouteInput'), addRouteBtn = $('#addRouteBtn'), routeListUI = $('#routeListUI');
-  const newShoeInput = $('#newShoeInput'), addShoeBtn = $('#addShoeBtn'), shoeListUI = $('#shoeListUI');
-  const newSurfaceInput = $('#newSurfaceInput'), addSurfaceBtn = $('#addSurfaceBtn'), surfaceListUI = $('#surfaceListUI');
-  const newXTrainInput = $('#newXTrainInput'), addXTrainBtn = $('#addXTrainBtn'), xtrainListUI = $('#xtrainListUI');
-
   document.getElementById('year').textContent = new Date().getFullYear();
 
-  // Theme
-  const storedTheme = localStorage.getItem('theme');
-  if(storedTheme) document.documentElement.classList.toggle('light', storedTheme==='light');
-  themeBtn?.addEventListener('click', () => {
-    const isLight = document.documentElement.classList.toggle('light');
-    localStorage.setItem('theme', isLight?'light':'dark');
-  });
-if (window.runlogSyncToCloud) window.runlogSyncToCloud();
   // Tabs
   tabs.forEach(btn => btn.addEventListener('click', () => {
     tabs.forEach(b=>b.setAttribute('aria-selected','false'));
@@ -154,7 +137,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
       shoe, surface, route, workout: workoutTitle,
       segments, // [{kind, distance, time, shoe}]
       xtrain,   // [{name, notes}]
-      isRace, race
+      isRace, race, notes
     };
 
     // Save or update
@@ -204,12 +187,11 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
       runForm.elements['notes'].value = existing.notes || '';
       runForm.elements['id'].value = existing.id;
 
-      // segments
-      (existing.segments||[]).forEach(seg => addSegmentRow(seg.kind, fmtDist(seg.distance||0), secToHMS(seg.time||0), seg.shoe||''));
-      // xtrain items
+      (existing.segments||[]).forEach(seg => addSegmentRow(
+        seg.kind, fmtDist(seg.distance||0), secToHMS(seg.time||0), seg.shoe||''
+      ));
       (existing.xtrain||[]).forEach(it => addXTrainRow(it.name || '', it.notes || ''));
 
-      // race
       if(existing.isRace){
         $('#isRace').checked = true;
         $('#raceName').value = existing.race?.name || '';
@@ -256,14 +238,13 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
       return { kind, distance: dist, time, shoe };
     }).filter(s => (s.distance>0 || s.time>0));
   }
-
   $('#wbAddWU')?.addEventListener('click', ()=> addSegmentRow('WU'));
   $('#wbAddRep')?.addEventListener('click',()=> addSegmentRow('Rep'));
   $('#wbAddRest')?.addEventListener('click',()=> addSegmentRow('Rest'));
   $('#wbAddCD')?.addEventListener('click', ()=> addSegmentRow('CD'));
   $('#wbClear')?.addEventListener('click', ()=> clearWorkoutTable());
 
-  // Cross-training table helpers
+  // Cross-training
   function addXTrainRow(name='', notes=''){
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -319,7 +300,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     monthLabel.textContent = monthStart.toLocaleString(undefined, { month:'long', year:'numeric'});
     calendarGrid.innerHTML = '';
 
-    // Headers
+    // Header row Mon→Sun
     weekdayNames.forEach(w => {
       const h = document.createElement('div');
       h.className = 'day';
@@ -419,7 +400,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     });
   }
 
-  // Races tab
+  // Races
   function renderRaces(){
     if(!racesTbody) return;
     const races = runs.filter(r=>r.isRace).sort((a,b)=> a.date<b.date?1:-1);
@@ -484,7 +465,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
   function drawBar(canvas, map, title){
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0,0,canvas.width, canvas.height);
-    ctx.fillStyle = getCss('--surface') || '#0f172a';
+    ctx.fillStyle = getCss('--surface') || '#ffffff';
     ctx.fillRect(0,0,canvas.width, canvas.height);
     const labels = Object.keys(map);
     const values = labels.map(k=>map[k]);
@@ -543,7 +524,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     renderTypeListUI(); renderRouteListUI(); renderShoeListUI(); renderSurfaceListUI(); renderXTrainListUI();
   }
   function renderTypeListUI() {
-    if (!typeListUI) return;
+    const typeListUI = $('#typeList'); if (!typeListUI) return;
     typeListUI.innerHTML = meta.types.map(t => `<li>${esc(t)} <button type="button" data-type="${esc(t)}" title="Remove">×</button></li>`).join('');
     typeListUI.querySelectorAll('button[data-type]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -555,7 +536,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     });
   }
   function renderRouteListUI() {
-    if (!routeListUI) return;
+    const routeListUI = $('#routeListUI'); if (!routeListUI) return;
     const uniq = uniqSorted(meta.routes);
     routeListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-route="${esc(r)}" title="Remove">×</button></li>`).join('');
     routeListUI.querySelectorAll('button[data-route]').forEach(btn => {
@@ -568,7 +549,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     });
   }
   function renderShoeListUI() {
-    if (!shoeListUI) return;
+    const shoeListUI = $('#shoeListUI'); if (!shoeListUI) return;
     const uniq = uniqSorted(meta.shoes);
     shoeListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-shoe="${esc(r)}" title="Remove">×</button></li>`).join('');
     shoeListUI.querySelectorAll('button[data-shoe]').forEach(btn => {
@@ -581,7 +562,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     });
   }
   function renderSurfaceListUI() {
-    if (!surfaceListUI) return;
+    const surfaceListUI = $('#surfaceListUI'); if (!surfaceListUI) return;
     const uniq = uniqSorted(meta.surfaces);
     surfaceListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-surface="${esc(r)}" title="Remove">×</button></li>`).join('');
     surfaceListUI.querySelectorAll('button[data-surface]').forEach(btn => {
@@ -594,7 +575,7 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     });
   }
   function renderXTrainListUI() {
-    if (!xtrainListUI) return;
+    const xtrainListUI = $('#xtrainListUI'); if (!xtrainListUI) return;
     const uniq = uniqSorted(meta.xtrain);
     xtrainListUI.innerHTML = uniq.map(r => `<li>${esc(r)} <button type="button" data-xtrain="${esc(r)}" title="Remove">×</button></li>`).join('');
     xtrainListUI.querySelectorAll('button[data-xtrain]').forEach(btn => {
@@ -608,11 +589,11 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
   }
 
   // Add in Tools
-  addTypeBtn?.addEventListener('click', () => addToList(newTypeInput, meta.types, () => { renderTypeListUI(); renderTypeSelect(); renderTypeFilterOptions(); }));
-  addRouteBtn?.addEventListener('click', () => addToList(newRouteInput, meta.routes, () => { renderRouteListUI(); renderRouteDatalist(); }));
-  addShoeBtn?.addEventListener('click', () => addToList(newShoeInput, meta.shoes, () => { renderShoeListUI(); renderShoeDatalist(); renderShoeStatsList(); }));
-  addSurfaceBtn?.addEventListener('click', () => addToList(newSurfaceInput, meta.surfaces, () => { renderSurfaceListUI(); renderSurfaceDatalist(); }));
-  addXTrainBtn?.addEventListener('click', () => addToList(newXTrainInput, meta.xtrain, () => { renderXTrainListUI(); }));
+  $('#addTypeBtn')?.addEventListener('click', () => addToList($('#newTypeInput'), meta.types, () => { renderTypeListUI(); renderTypeSelect(); renderTypeFilterOptions(); }));
+  $('#addRouteBtn')?.addEventListener('click', () => addToList($('#newRouteInput'), meta.routes, () => { renderRouteListUI(); renderRouteDatalist(); }));
+  $('#addShoeBtn')?.addEventListener('click', () => addToList($('#newShoeInput'), meta.shoes, () => { renderShoeListUI(); renderShoeDatalist(); renderShoeStatsList(); }));
+  $('#addSurfaceBtn')?.addEventListener('click', () => addToList($('#newSurfaceInput'), meta.surfaces, () => { renderSurfaceListUI(); renderSurfaceDatalist(); }));
+  $('#addXTrainBtn')?.addEventListener('click', () => addToList($('#newXTrainInput'), meta.xtrain, () => { renderXTrainListUI(); }));
 
   function addToList(input, arr, after){
     const name = normalizeName(input?.value);
@@ -713,7 +694,6 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
         const obj = normalizeImported(r);
         if(!obj) return; if(existingKeys.has(keyOf(obj))) return;
         runs.push(obj);
-        // learn from imported
         learnToMeta(meta.routes, obj.route);
         learnToMeta(meta.shoes, obj.shoe);
         learnToMeta(meta.surfaces, obj.surface);
@@ -729,9 +709,28 @@ if (window.runlogSyncToCloud) window.runlogSyncToCloud();
     } catch(err){ alert('Import failed: '+err.message); }
   });
 
-  // Utils
+  // === Local storage helpers (with autosync + events) ===
   function load(key){ try { return JSON.parse(localStorage.getItem(key)||'null'); } catch(e){ return null; } }
-  function save(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+  function save(key,val){
+    localStorage.setItem(key, JSON.stringify(val));
+    window.dispatchEvent(new CustomEvent('runlog:local-updated', { detail: { key, val } }));
+    if (key === storageKey && window.runlogSyncToCloud) {
+      window.runlogSyncToCloud(); // debounced upsert
+    }
+  }
+
+  // Cross-tab + in-app live refresh
+  window.addEventListener('runlog:local-updated', () => {
+    renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
+  });
+  window.addEventListener('storage', (e) => {
+    if (e.key === storageKey) {
+      runs = load(storageKey) || [];
+      renderCalendar(); renderList(); renderRaces(); updateStats(); drawAllCharts(); renderShoeStatsList();
+    }
+  });
+
+  // Utils
   function sum(arr){ return arr.reduce((a,b)=>a+b,0); }
   function todayISO(){ return new Date().toISOString().slice(0,10); }
   function toISO(d){ const z = new Date(d.getTime()-d.getTimezoneOffset()*60000); return z.toISOString().slice(0,10); }
