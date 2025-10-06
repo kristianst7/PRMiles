@@ -3,7 +3,7 @@ import { supabase } from "./supabaseClient.js";
 
 const LS_KEY = "runlog.v1";
 
-// Grab all the Settings-panel elements that are already in your index.html
+// Elements from index.html
 const els = {
   form: document.getElementById("authForm"),
   authedPanel: document.getElementById("authedPanel"),
@@ -14,33 +14,39 @@ const els = {
   status: document.getElementById("cloudStatus"),
 };
 
-// --- Local store helpers ---
 function getLocal() {
   try { return JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }
   catch { return {}; }
 }
 function setLocal(data) {
   localStorage.setItem(LS_KEY, JSON.stringify(data));
-  // Let the rest of the app know local data changed
-  window.dispatchEvent(new CustomEvent("runlog:local-updated"));
+  window.dispatchEvent(new CustomEvent("runlog:local-updated", { detail: { key: LS_KEY, val: data } }));
 }
 function setStatus(msg) {
   if (els.status) els.status.textContent = msg;
 }
 
-// --- Auth wiring (email/password) ---
+// Auth: sign in / sign up
 els?.form?.addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = e.target.email.value.trim();
   const password = e.target.password.value;
   setStatus("Signing in…");
 
-  // Try sign-in first; if user doesn't exist, sign-up
   let { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error && (error.message.includes("Invalid") || error.message.includes("login"))) {
-    ({ error } = await supabase.auth.signUp({ email, password }));
+  if (error) {
+    const isInvalid = /invalid|credential|not found/i.test(error.message || "");
+    if (isInvalid) {
+      setStatus("No account found. Creating…");
+      const { error: suErr } = await supabase.auth.signUp({ email, password });
+      if (suErr) return setStatus("Sign-up error: " + suErr.message);
+      const { error: si2Err } = await supabase.auth.signInWithPassword({ email, password });
+      if (si2Err) return setStatus((/confirm/i.test(si2Err.message||"")) ? "Check your email to confirm, then sign in." : ("Sign-in error: " + si2Err.message));
+    } else {
+      return setStatus("Auth error: " + error.message);
+    }
   }
-  if (error) setStatus("Auth error: " + error.message);
+  setStatus("Signed in.");
 });
 
 els?.signOutBtn?.addEventListener("click", async () => {
@@ -48,7 +54,7 @@ els?.signOutBtn?.addEventListener("click", async () => {
   setStatus("Signed out.");
 });
 
-// Keep UI in sync with session state
+// UI sync with session
 async function refreshUI(session) {
   const user = session?.user || null;
   const authed = !!user;
@@ -60,28 +66,23 @@ async function refreshUI(session) {
   setStatus(authed ? "Signed in. Use Save/Load to sync." : "Not signed in.");
 }
 
-supabase.auth.onAuthStateChange((_evt, session) => refreshUI(session));
-supabase.auth.getSession().then(({ data }) => refreshUI(data.session));
-
-// --- Cloud helpers ---
+// Cloud helpers
 async function getUserId() {
   const { data: { user } } = await supabase.auth.getUser();
   return user?.id || null;
 }
 
-// Pull cloud → overwrite local
 async function loadFromCloud() {
   const uid = await getUserId();
   if (!uid) return setStatus("Not signed in.");
-
   setStatus("Loading from cloud…");
+
   const { data, error } = await supabase
     .from("user_runs")
     .select("data")
     .eq("user_id", uid)
     .single();
 
-  // PGRST116 = row not found (no cloud doc yet)
   if (error && error.code !== "PGRST116") return setStatus("Load error: " + error.message);
   if (!data) return setStatus("No cloud doc yet. Save to cloud first.");
 
@@ -89,7 +90,6 @@ async function loadFromCloud() {
   setStatus("Loaded from cloud.");
 }
 
-// Push local → cloud (creates or updates your row)
 async function saveToCloud() {
   const uid = await getUserId();
   if (!uid) return setStatus("Not signed in.");
@@ -104,15 +104,48 @@ async function saveToCloud() {
   setStatus("All changes saved to cloud.");
 }
 
-// Wire buttons
 els?.saveBtn?.addEventListener("click", saveToCloud);
 els?.loadBtn?.addEventListener("click", loadFromCloud);
 
-// Export a debounced auto-sync you can call after each local save
+// Debounced autosync used by app.js save()
 let syncTimer;
 export function syncToCloudDebounced() {
   clearTimeout(syncTimer);
-  syncTimer = setTimeout(saveToCloud, 1000);
+  syncTimer = setTimeout(saveToCloud, 800);
 }
-// Global fallback so you can call it from anywhere in app.js without imports
 window.runlogSyncToCloud = syncToCloudDebounced;
+
+// Bootstrap on sign-in: seed from first device or load from cloud
+async function bootstrapUserData() {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const uid = user.id;
+    const local = getLocal();
+
+    const sel = await supabase.from('user_runs').select('data').eq('user_id', uid).single();
+
+    if (sel.error && sel.error.code === 'PGRST116') {
+      await supabase.from('user_runs').insert({ user_id: uid, data: local, updated_at: new Date().toISOString() });
+      setStatus('Created cloud doc from this device.');
+    } else if (!sel.error) {
+      const cloud = sel.data?.data || {};
+      const merged = Object.keys(local).length ? { ...cloud, ...local } : cloud;
+      setLocal(merged);
+      setStatus('Loaded cloud data.');
+    } else {
+      setStatus('Bootstrap error: ' + sel.error.message);
+    }
+  } catch (e) {
+    setStatus('Bootstrap exception: ' + (e?.message || e));
+  }
+}
+
+// Wire session changes
+supabase.auth.onAuthStateChange(async (_evt, session) => {
+  await refreshUI(session);
+  if (session?.user) bootstrapUserData();
+});
+
+// Initial draw
+supabase.auth.getSession().then(({ data }) => refreshUI(data.session));
