@@ -1,0 +1,121 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RunLog • Supabase Diag</title>
+<style>
+  body { font: 14px/1.4 system-ui, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; }
+  pre { background: #f6f8fa; padding: .75rem; overflow:auto; }
+  .ok { color: #0a7f2e; } .err { color: #b00020; } .muted{color:#64748b}
+  label { display:block; margin:.5rem 0; }
+  input { padding:.4rem .6rem; width: 100%; max-width: 360px; }
+  button { padding:.5rem .8rem; margin-right:.5rem; }
+</style>
+
+<h1>Supabase Diagnostics</h1>
+<p class="muted">This page signs in (or creates) a test user, then writes/reads <code>user_runs</code>.</p>
+
+<section>
+  <h2>1) Environment</h2>
+  <div id="env"></div>
+</section>
+
+<section>
+  <h2>2) Auth</h2>
+  <label>Email <input id="email" type="email" placeholder="you@example.com"></label>
+  <label>Password <input id="pw" type="password" placeholder="min 6 chars"></label>
+  <button id="btnSignInUp">Sign up / Sign in</button>
+  <button id="btnGetUser">Get user</button>
+  <div id="authOut"><pre>…</pre></div>
+</section>
+
+<section>
+  <h2>3) DB test (RLS)</h2>
+  <button id="btnSave">UPSERT to user_runs</button>
+  <button id="btnLoad">SELECT from user_runs</button>
+  <div id="dbOut"><pre>…</pre></div>
+</section>
+
+<section>
+  <h2>Console</h2>
+  <div id="log"><pre>…</pre></div>
+</section>
+
+<script type="module">
+  import { supabase } from './supabaseClient.js'; // uses your real URL/key
+
+  const $ = (id) => document.getElementById(id);
+  const log = (el, obj) => { el.textContent = JSON.stringify(obj, null, 2); console.log(obj); };
+  const append = (el, line) => { el.textContent += "\\n" + line; console.log(line); };
+
+  // Show basic env
+  const env = $("env");
+  const api = supabase?.rest?.url || "(n/a)";
+  env.innerHTML = `<pre>${JSON.stringify({
+    location: window.location.href,
+    served_over: location.protocol,
+    supabase_url_ok: api.startsWith("https://"),
+    pathname: location.pathname,
+  }, null, 2)}</pre>`;
+
+  const authOut = $("authOut").firstElementChild;
+  const dbOut = $("dbOut").firstElementChild;
+  const logOut = $("log").firstElementChild;
+
+  // Initial session
+  (async () => {
+    const { data, error } = await supabase.auth.getSession();
+    append(logOut, "[init] session: " + (!!data?.session) + (error ? " ERR " + error.message : ""));
+  })();
+
+  $("btnSignInUp").onclick = async () => {
+    const email = $("email").value.trim();
+    const password = $("pw").value;
+    authOut.textContent = "Signing in…";
+
+    // Try sign-in, else sign-up, then sign-in
+    let { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      const msg = (error.message||"").toLowerCase();
+      if (msg.includes("invalid") || msg.includes("credentials")) {
+        append(logOut, "[auth] sign in failed; trying sign up…");
+        const { error: suErr } = await supabase.auth.signUp({ email, password });
+        if (suErr) { log(authOut, { step: "signUp", error: suErr }); return; }
+        const { error: si2Err } = await supabase.auth.signInWithPassword({ email, password });
+        if (si2Err) { log(authOut, { step: "signInAfterSignUp", error: si2Err }); return; }
+        log(authOut, { ok: true, step: "signed in after sign up" });
+        return;
+      } else {
+        log(authOut, { step: "signIn", error });
+        return;
+      }
+    }
+    log(authOut, { ok: true, step: "signed in" });
+  };
+
+  $("btnGetUser").onclick = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    log(authOut, { step: "getUser", user: data?.user, error });
+  };
+
+  $("btnSave").onclick = async () => {
+    dbOut.textContent = "Saving…";
+    const { data: u } = await supabase.auth.getUser();
+    if (!u?.user) { log(dbOut, { error: "no user/session" }); return; }
+    const payload = { demo: true, time: new Date().toISOString(), note: "hello from diag.html" };
+    const { error } = await supabase
+      .from("user_runs")
+      .upsert({ user_id: u.user.id, data: payload, updated_at: new Date().toISOString() });
+    log(dbOut, { step: "upsert", ok: !error, error });
+  };
+
+  $("btnLoad").onclick = async () => {
+    dbOut.textContent = "Loading…";
+    const { data: u } = await supabase.auth.getUser();
+    if (!u?.user) { log(dbOut, { error: "no user/session" }); return; }
+    const { data, error } = await supabase
+      .from("user_runs")
+      .select("data")
+      .eq("user_id", u.user.id)
+      .single();
+    log(dbOut, { step: "select", ok: !error, error, data });
+  };
+</script>
