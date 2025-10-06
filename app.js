@@ -79,7 +79,7 @@
     const isLight = document.documentElement.classList.toggle('light');
     localStorage.setItem('theme', isLight?'light':'dark');
   });
-
+if (window.runlogSyncToCloud) window.runlogSyncToCloud();
   // Tabs
   tabs.forEach(btn => btn.addEventListener('click', () => {
     tabs.forEach(b=>b.setAttribute('aria-selected','false'));
