@@ -333,3 +333,38 @@
 <script src="app.js?v=108"></script>
 </body>
 </html>
+// supabaseClient.js
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+export const SUPABASE_URL = "https://vghkienwhrpmqgpepehz.supabase.co";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZnaGtpZW53aHJwbXFncGVwZWh6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk3MDYxNjYsImV4cCI6MjA3NTI4MjE2Nn0.mSd7GDnlz-yj91M6cqZcxCZ9_WkQnrC41e1esoEtWGs";
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true
+  }
+});
+<section id="cloud-auth" class="card">
+  <h3>Account</h3>
+  <form id="authForm">
+    <input name="email" type="email" placeholder="Email" required />
+    <input name="password" type="password" placeholder="Password (min 6)" minlength="6" required />
+    <button type="submit">Sign up / Sign in</button>
+  </form>
+
+  <div id="authedPanel" style="display:none">
+    <p id="userEmail"></p>
+    <button id="signOutBtn" type="button">Sign out</button>
+  </div>
+
+  <hr>
+
+  <h4>Cloud Sync</h4>
+  <p id="cloudStatus">Not signed in.</p>
+  <div class="row">
+    <button id="saveCloudBtn" type="button" disabled>Save to Cloud</button>
+    <button id="loadCloudBtn" type="button" disabled>Load from Cloud</button>
+  </div>
+</section>
